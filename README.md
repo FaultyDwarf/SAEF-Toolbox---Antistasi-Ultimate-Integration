@@ -6,7 +6,7 @@ Wires SAEF Toolbox features into Antistasi Ultimate. Three PBOs:
 |---|---|---|---|
 | `saef_toolbox_au_integration` | admin actions (Log StatTrack, invincibility) | server | `cba_xeh` |
 | `saef_tbau_waverespawn` | wave respawn + its setup-screen parameters | server, plus setup admins | `cba_xeh`, `A3A_core`, `SAEF_TOOLBOX_RESPAWN` |
-| `saef_tbau_saef_rebels` | SAEF flag and map marker over the `Aegis_FIA` rebel template | **everyone** | `A3A_core` |
+| `saef_tbau_saef_rebels` | SAEF flag and map marker over the `Aegis_FIA` rebel template; also drops every Titan launcher (AT and AA) for Aegis AAF/NATO AI | **everyone** | `A3A_core` |
 
 **This now goes in the client preset**, which reverses what earlier versions of this
 README said. `saef_tbau_saef_rebels` (previously the standalone
@@ -231,8 +231,17 @@ time, not build time, so a stale one fails silently at runtime as a missing text
 changes again.
 
 Its `fn_compatibilityLoadFaction.sqf` is a frozen copy of Antistasi's own function with
-one addition, so it needs re-syncing if Antistasi changes that function upstream. That is
+two additions, so it needs re-syncing if Antistasi changes that function upstream. That is
 the one real maintenance cost in this mod folder.
+
+The second addition is unrelated to the flag: on `Aegis_AI_AAF.sqf` and the three
+`Aegis_AI_NATO_*` climate files, it drops every Titan launcher those AI carry - AT role
+and AA role alike - and leaves them with only the unguided `NLAW_F`. It runs as a
+post-process over the already-built unit loadouts (`fn_SAEF_titanToNLAW.sqf`) rather
+than a file-list append, because the launcher weapon pools are private to each template
+file's own execution and never reach the shared closure the flag override relies on.
+No other faction pack is touched. Full reasoning and scope in the
+[same README](saef_tbau_saef_rebels/README.md).
 
 ### Visibility
 

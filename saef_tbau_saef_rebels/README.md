@@ -118,19 +118,63 @@ paths in Antistasi:
 `fn_compatibilityLoadFaction.sqf` is a **frozen copy of Antistasi's own
 function**, with Antistasi-internal macros stripped (no
 `script_component.hpp`, no `FIX_LINE_NUMBERS()`, `Info_2(...)` replaced with
-plain `diag_log`) and one small addition (the file-list append). If Antistasi
-changes this function's own logic upstream, this copy needs manual
-re-syncing. This is a much smaller and more stable surface than duplicating
-a whole per-faction template file, though: `compatibilityLoadFaction` is
-generic orchestration plumbing shared by every faction template, not
-per-faction gameplay content, so it changes far less often than something
-like `Aegis_Reb_FIA.sqf` itself would.
+plain `diag_log`) and two small additions (the file-list append covered
+above, and the Titan-to-NLAW swap covered below). If Antistasi changes this
+function's own logic upstream, this copy needs manual re-syncing. This is a
+much smaller and more stable surface than duplicating a whole per-faction
+template file, though: `compatibilityLoadFaction` is generic orchestration
+plumbing shared by every faction template, not per-faction gameplay content,
+so it changes far less often than something like `Aegis_Reb_FIA.sqf` itself
+would.
 
-**Scope:** this only covers `Aegis_FIA`. Antistasi ships dozens of other
-Reb-side templates across other faction packs (Vanilla, CUP, RHS, CSLA,
-VN, ...) that this doesn't touch - though extending it to another template
-is just one more `if (_file find "...") then { ... };` line in
+**Scope (flag override):** only covers `Aegis_FIA`. Antistasi ships dozens
+of other Reb-side templates across other faction packs (Vanilla, CUP, RHS,
+CSLA, VN, ...) that this doesn't touch - though extending it to another
+template is just one more `if (_file find "...") then { ... };` line in
 `fn_compatibilityLoadFaction.sqf`, no further file duplication needed.
+
+## Titan-to-NLAW swap (AAF garrison, NATO invasion)
+
+A second, unrelated override in the same function, added for balance rather
+than branding: Antistasi's Aegis pack hands `Aegis_AI_AAF.sqf` and the three
+`Aegis_AI_NATO_*` climate files a guided, fire-and-forget Titan missile
+launcher - both the AT role (`Titan_AT`) and the AA role (`Titan_AA`) - in
+addition to the unguided `NLAW_F` the AT role already carries in a separate
+pool. This drops every Titan variant and leaves those units with just the
+NLAW. No other faction pack is touched.
+
+**Why this isn't a file-list append like the flag override above:** those
+templates build their launcher options in a `private _loadoutData` that only
+exists inside that template file's own execution - every file in
+`A3A_fnc_loadFaction`'s list runs in its own sibling scope, so an appended
+file can't see another file's `private` variables. Only the shared
+`_fnc_saveToTemplate` closure crosses that boundary, and launcher pools never
+go through it - they're consumed locally and turned into concrete unit
+loadouts (weapon + magazine already picked) before the template file
+returns.
+
+So this doesn't touch the pool at all. It runs *after*
+`A3A_fnc_loadFaction` returns, once `A3A_fnc_loadout_builder` has already
+resolved every unit type's loadouts, and walks that result
+(`fn_SAEF_titanToNLAW.sqf`): for every generated loadout of every unit type
+in the faction, if the launcher slot's magazine is any of `Titan_AT` /
+`Titan_AA` / `Titan_AP`, the whole weapon array is replaced with
+`launch_NLAW_F` + `NLAW_F`; any spare Titan magazines still sitting in that
+unit's uniform/vest/backpack are renamed to `NLAW_F` in place. HashMaps and
+arrays are reference types in SQF, so mutating them here is visible in the
+faction data `compatibilityLoadFaction` registers right afterward - no
+re-save needed.
+
+**Scope:** `Aegis_AI_AAF.sqf`, `Aegis_AI_NATO_Arid.sqf`,
+`Aegis_AI_NATO_Temperate.sqf`, `Aegis_AI_NATO_Tropical.sqf` only, matched by
+filename in `fn_compatibilityLoadFaction.sqf`. Extending it to another
+faction pack is one more filename in the `_titanToNLAWFiles` array there -
+`fn_SAEF_titanToNLAW.sqf` itself is generic (it looks for any Titan magazine
+class in already-built loadouts, not anything specific to Aegis).
+
+Dropping `Titan_AA` this broadly means these units genuinely lose their only
+guided anti-air answer to player helicopters, not just a nerf to it - worth
+knowing since that's a bigger balance swing than the AT-only version was.
 
 ## File layout
 
@@ -142,8 +186,9 @@ saef_tbau_saef_rebels/
 ├── Templates/
 │   ├── Templates.hpp                             Aegis_FIA menu-preview override
 │   └── functions/
-│       ├── fn_compatibilityLoadFaction.sqf       function override (in-game flag fix)
-│       └── fn_SAEF_flagOverride.sqf              tiny snippet it injects
+│       ├── fn_compatibilityLoadFaction.sqf       function override (in-game flag fix + Titan/NLAW swap)
+│       ├── fn_SAEF_flagOverride.sqf              tiny snippet it injects (flag)
+│       └── fn_SAEF_titanToNLAW.sqf               loadout post-process it calls (Titan -> NLAW)
 └── Pictures/
     └── Markers/
         ├── SAEF_flag_1024x512.paa                flagpole texture (flat, 2:1)
@@ -188,5 +233,7 @@ Load this alongside Antistasi Ultimate on a local/dev server.
 - Confirm any *other* rebel template still behaves normally - this override
   is intentionally scoped to `Aegis_FIA` only.
 
-None of this has been run against a live Arma instance - treat it as a first
-draft to smoke-test, not a verified drop-in.
+For the Titan-to-NLAW swap: spawn or inspect an AT-role and an AA-role unit
+from Aegis AAF or one of the NATO climate templates and confirm their
+launcher/inventory shows `NLAW_F` rather than `Titan_AT`/`Titan_AA`/`Titan_AP`.
+Confirm a faction pack outside the scoped list is unaffected.
