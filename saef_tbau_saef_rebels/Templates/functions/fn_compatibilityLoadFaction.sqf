@@ -4,9 +4,9 @@
 	Overrides A3A_fnc_compatibilityLoadFaction, registered under
 	CfgFunctions >> A3A >> FunctionsTemplates >> compatibilityLoadFaction.
 
-	A copy of Antistasi's own function with one addition: the Aegis_Reb_FIA branch
-	below. Everything else is unchanged, so this needs re-syncing if Antistasi
-	changes that function upstream.
+	A copy of Antistasi's own function with two additions: the Aegis_Reb_FIA branch
+	below, and the Titan-to-NLAW swap further down. Everything else is unchanged, so
+	this needs re-syncing if Antistasi changes that function upstream.
 
 	Called on the server only, from A3A_fnc_initVarServer.
 */
@@ -28,6 +28,17 @@ if (_file find "Aegis_Reb_FIA.sqf" != -1) then {
 };
 
 private _faction = [_filepaths] call A3A_fnc_loadFaction;
+
+// Swap every Titan missile (AT, AA, AP) for the unguided NLAW, on the specific Aegis
+// factions the group actually fights (AAF garrison, NATO invasion). This can't use the
+// _filepaths trick above - the weapon pools those templates build are private to their
+// own file execution and never reach the shared closure - so it edits the already-
+// resolved unit loadouts A3A_fnc_loadFaction just returned instead. See
+// fn_SAEF_titanToNLAW.sqf for the mechanics.
+private _titanToNLAWFiles = ["Aegis_AI_AAF.sqf", "Aegis_AI_NATO_Arid.sqf", "Aegis_AI_NATO_Temperate.sqf", "Aegis_AI_NATO_Tropical.sqf"];
+if ((_titanToNLAWFiles findIf {_file find _x != -1}) != -1) then {
+	[_faction] call compile preprocessFileLineNumbers "saef_tbau_saef_rebels\Templates\functions\fn_SAEF_titanToNLAW.sqf";
+};
 private _factionPrefix = ["occ", "inv", "reb", "civ"] select ([west, east, independent, civilian] find _side);
 missionNamespace setVariable ["A3A_faction_" + _factionPrefix, _faction];
 [_faction, _factionPrefix] call A3A_fnc_compileGroups;
