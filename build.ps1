@@ -17,7 +17,7 @@
 $ErrorActionPreference = "Stop"
 
 $FileBank = "D:\SteamLibrary\steamapps\common\Arma 3 Tools\FileBank\FileBank.exe"
-$Prefixes = @("saef_toolbox_au_integration", "saef_tbau_waverespawn", "saef_tbau_saef_rebels")
+$Prefixes = @("saef_toolbox_au_integration", "saef_tbau_waverespawn", "saef_tbau_saef_rebels", "saef_antistasi_squad_default_frequency")
 $ModDir   = "D:\ArmA3\A3Files\mods\@SAEF_Toolbox_AU_Integration"
 $OutDir   = Join-Path $ModDir "addons"
 
