@@ -1,19 +1,26 @@
 /*
     initPlayerLocal.sqf
-    Runs locally on clients when they join the mission.
+    Runs locally on clients when they join or respawn in the mission.
 */
 
-// Ensure the player object and game environment are fully loaded
+// 1. Ensure the player object and game environment are fully loaded
 waitUntil { !isNull player && {time > 0} };
 
-// 1. Sync group default frequency on join/reconnect
-private _groupFreq = (group player) getVariable ["AU_defaultFrequency", ""];
-if (_groupFreq != "") then {
-    player setVariable ["AU_assignedFrequency", _groupFreq, true];
+// 2. Small delay to allow Antistasi to assign player to their designated squad
+[] spawn {
+    sleep 1;
+    
+    private _group = group player;
+    if (!isNull _group) then {
+        private _groupFreq = _group getVariable ["AU_defaultFrequency", ""];
+        if (_groupFreq != "") then {
+            player setVariable ["AU_assignedFrequency", _groupFreq, true];
+        };
+    };
 };
 
-// 2. Start the Dynamic Groups UI injection monitor
+// 3. Register Dynamic Groups UI observer (Event-driven, no background loop)
 [] spawn AU_SquadRadio_fnc_dynamicGroupUpdate;
 
-// 3. Start the radio auto-programmer loop (monitors Arsenal / inventory radio pickup)
+// 4. Start the radio auto-programmer thread (Inventory & Radio State Monitor)
 [] spawn AU_SquadRadio_fnc_radioAutoProgrammer;

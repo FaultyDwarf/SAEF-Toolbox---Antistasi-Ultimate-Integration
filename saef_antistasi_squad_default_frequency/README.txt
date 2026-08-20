@@ -1,48 +1,45 @@
 saef_antistasi_squad_default_frequency
-====================
+======================================
 
-This addon changes the inventory mass of the existing Arma 3 Titan_AA magazine to 200.
+This addon integrates a custom squad frequency selection control directly into 
+the Dynamic Groups menu (Display 60490) for Antistasi. It automatically 
+programs Task Force Arrowhead Radio (TFAR) shortwave radios for squad members 
+and configures Command Net (50 MHz) on Channel 2 for Squad Leaders.
 
-Source:
-@TitanAA_Heavy/
+Mod Directory Structure:
+@saef_antistasi_squad_default_frequency/
   addons/
-    TitanAA_Heavy/
+    saef_antistasi_squad_default_frequency/
       config.cpp
+      initPlayerLocal.sqf
+      functions/
+        fn_applyFrequencyToPlayer.sqf
+        fn_dynamicGroupUpdate.sqf
+        fn_radioAutoProgrammer.sqf
+        fn_setSquadFrequency.sqf
 
-Build:
-1. Install Arma 3 Tools from Steam.
+Dependencies:
+- Arma 3 (v1.80+)
+- CBA_A3
+- Antistasi (A3A_Core)
+- Task Force Arrowhead Radio (TFAR Beta / 1.0+)
+
+Build Instructions:
+1. Install Arma 3 Tools via Steam.
 2. Open Addon Builder.
-3. Select the folder:
-   @TitanAA_Heavy/addons/TitanAA_Heavy
-4. Set the destination to:
-   @TitanAA_Heavy/addons
-5. Pack the addon. This creates TitanAA_Heavy.pbo.
-6. The final mod should contain:
-   @TitanAA_Heavy/
-     addons/
-       TitanAA_Heavy.pbo
-7. Launch Arma 3 with @TitanAA_Heavy enabled.
+3. Set Source Directory to:
+   ...\@saef_antistasi_squad_default_frequency\addons\saef_antistasi_squad_default_frequency
+4. Set Destination Directory to:
+   ...\@saef_antistasi_squad_default_frequency\addons
+5. In Options, set Binarize to "Binarize All Files" (or leave unbinarized for raw SQF).
+6. Click "Pack". Addon Builder will generate saef_antistasi_squad_default_frequency.pbo.
 
-NOTE:
-The config uses the inherited class override form. If your Arma build reports a duplicate/redefinition error, use a patch class instead:
+Final Output Structure:
+@saef_antistasi_squad_default_frequency/
+  addons/
+    saef_antistasi_squad_default_frequency.pbo
 
-class CfgPatches
-{
-    class TitanAA_Heavy
-    {
-        requiredVersion = 1.60;
-        requiredAddons[] = {"A3_Weapons_F"};
-        units[] = {};
-        weapons[] = {};
-    };
-};
-
-class CfgMagazines
-{
-    class Titan_AA
-    {
-        mass = 200;
-    };
-};
-
-The supplied config is intended as the starting point.
+How It Works:
+- Dynamic Groups UI: When pressing the Dynamic Groups key (default U), a frequency input field is injected.
+- Squad Leader Control: Only the Squad Leader can edit the squad's frequency.
+- Radio Auto-Programmer: Automatically reprograms TFAR radios upon picking up radios from Arsenals/corpses, respawning, or squad transfers without continuous polling loops.

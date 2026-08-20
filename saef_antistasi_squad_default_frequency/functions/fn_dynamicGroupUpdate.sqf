@@ -1,142 +1,157 @@
 /*
-    Monitor for Dynamic Groups dialog (60490) and inject Radio Frequency input
-    Handles saving automatically on text unfocus/dialog close
-    Restricts editing strictly to the Squad Leader
+    fn_dynamicGroupUpdate.sqf
+    Monitors for Dynamic Groups GUI (60490) opening and injects the frequency control.
 */
-[] spawn {
-    waitUntil { !isNull player && {time > 0} };
-    private _injected = false;
 
-    // Helper function to handle frequency validation & broadcast
+// Notification helper
+if (isNil "AU_fnc_notify") then {
+    AU_fnc_notify = {
+        params ["_title", "_msg"];
+        if (!isNil "A3A_fnc_customHint") then {
+            [_title, _msg] call A3A_fnc_customHint;
+        } else {
+            systemChat format ["[%1] %2", _title, _msg];
+        };
+    };
+};
+
+// Frequency submit handler
+if (isNil "AU_fnc_submitFrequency") then {
     AU_fnc_submitFrequency = {
         params ["_control"];
         if (isNull _control) exitWith {};
 
-        // Safety check: secondary guard against non-leaders
         if ((leader (group player)) != player) exitWith {};
 
         private _freq = ctrlText _control;
         private _num = parseNumber _freq;
-
-        // Skip processing if unchanged or blank
         private _cur = (group player) getVariable ["AU_defaultFrequency", ""];
+
         if (_freq == _cur || _freq == "") exitWith {};
 
         if (_num == 0 && _freq != "0") exitWith {
-            hint "Invalid frequency format.";
+            ["Squad Radio", "Invalid frequency format."] call AU_fnc_notify;
             _control ctrlSetText _cur;
         };
 
         if ((_num < 20) || (_num > 9999)) exitWith {
-            hint "Frequency must be between 20 and 9999 MHz.";
+            ["Squad Radio", "Frequency must be between 20 and 9999 MHz."] call AU_fnc_notify;
             _control ctrlSetText _cur;
         };
 
-        // Apply and broadcast frequency
         (group player) setVariable ["AU_defaultFrequency", _freq, true];
         [group player, _freq, player] remoteExec ["AU_SquadRadio_fnc_setSquadFrequency", 2];
 
-        hint format ["Squad frequency set to %1 MHz", _freq];
+        ["Squad Radio", format ["Squad frequency set to %1 MHz", _freq]] call AU_fnc_notify;
     };
+};
 
-    while {true} do {
-        private _d = findDisplay 60490;
+// UI Injection Worker
+AU_fnc_injectFrequencyControl = {
+    params ["_d"];
+    if (isNull _d) exitWith {};
 
-        if (!isNull _d) then {
-            if (!_injected) then {
-                _injected = true;
+    // Don't inject twice on the same display
+    if (!isNull (_d displayCtrl 60100)) exitWith {};
 
-                private _container  = _d displayCtrl 10677; // SectionManage container
-                private _privateChk = _d displayCtrl 11177; // CheckboxPrivate
-                private _scoreLabel = _d displayCtrl 9386;  // TextPlayerScore
-                private _scoreFill  = _d displayCtrl 9389;  // TextPlayerScoreFill
-                private _listBox    = _d displayCtrl 9878;  // ListboxManage
+    private _container  = _d displayCtrl 10677; // SectionManage container
+    private _privateChk = _d displayCtrl 11177; // CheckboxPrivate
+    private _scoreLabel = _d displayCtrl 9386;  // TextPlayerScore ("Score")
+    private _scoreFill  = _d displayCtrl 9389;  // TextPlayerScoreFill (Value)
+    private _listBox    = _d displayCtrl 9878;  // ListboxManage
 
-                if (!isNull _container && !isNull _privateChk && !isNull _listBox) then {
-                    private _chkPos   = ctrlPosition _privateChk;
-                    private _listPos  = ctrlPosition _listBox;
+    if (!isNull _container && !isNull _privateChk && !isNull _listBox && !isNull _scoreLabel && !isNull _scoreFill) then {
+        private _chkPos    = ctrlPosition _privateChk;
+        private _listPos   = ctrlPosition _listBox;
+        private _labelPos  = ctrlPosition _scoreLabel;
+        private _fillPos   = ctrlPosition _scoreFill;
 
-                    // 1. Coordinates & Heights
-                    private _x = _listPos select 0;
-                    private _w = _listPos select 2;
-                    private _y = (_chkPos select 1) + (_chkPos select 3) + 0.006;
-                    private _h = _chkPos select 3;
+    // 1. Calculate positions using Private checkbox height and exact native gap
+        private _x       = _labelPos select 0;
+        private _labelW  = _labelPos select 2;
+        private _inputW  = _fillPos select 2;
+        private _h       = _labelPos select 3;
+        
+        // Exact gap calculation: Private Y + Private Height + gap spacing
+        private _chkH    = _chkPos select 3;
+        private _rowGap  = 0.003; 
+        private _y       = (_chkPos select 1) + _chkH + _rowGap;
 
-                    // Compute widths
-                    private _labelW = _w * 0.45;
-                    private _inputW = _w - _labelW;
+        // 2. Adjust Listbox position cleanly
+        private _spacing    = 0.008;
+        private _newListY   = _y + _h + _spacing;
+        private _listHDelta = _newListY - (_listPos select 1);
+        private _newListH   = (_listPos select 3) - _listHDelta;
 
-                    if (!isNull _scoreLabel && !isNull _scoreFill) then {
-                        _labelW = (ctrlPosition _scoreLabel) select 2;
-                        _inputW = _w - _labelW;
-                    };
+        _listBox ctrlSetPosition [_listPos select 0, _newListY, _listPos select 2, _newListH];
+        _listBox ctrlCommit 0;
 
-                    // 2. Adjust Listbox height/position
-                    private _newListY = _y + _h + 0.008;
-                    private _listHDelta = _newListY - (_listPos select 1);
-                    private _newListH = (_listPos select 3) - _listHDelta;
+        // 3. Create Label ("Freq") — Matches native UI grey background & font weight perfectly
+        private _label = _d ctrlCreate ["RscStructuredText", -1, _container];
+        _label ctrlSetPosition [_x, _y, _labelW, _h];
+        _label ctrlSetBackgroundColor [1, 1, 1, 0.25]; // Exact native UI row tint
+        _label ctrlSetStructuredText parseText "<t align='right' valign='middle' color='#000000' font='RobotoCondensed' shadow='0' size='0.8'>Freq&#160;</t>";
+        _label ctrlSetTooltip "Squad radio frequency (20-9999 MHz)";
+        _label ctrlCommit 0;
 
-                    _listBox ctrlSetPosition [_listPos select 0, _newListY, _listPos select 2, _newListH];
-                    _listBox ctrlCommit 0;
+        // 4. Create Input Edit Box
+        private _edit = _d ctrlCreate ["RscEdit", 60100, _container];
+        _edit ctrlSetPosition [_x + _labelW, _y, _inputW, _h];
+        _edit ctrlSetFont "PuristaMedium";
+        _edit ctrlSetFontHeight (_h * 0.72);
+        _edit ctrlSetTextColor [1, 1, 1, 1];
+        _edit ctrlSetBackgroundColor [0, 0, 0, 0.6];
 
-                    private _font = "RobotoCondensed";
-                    private _textSize = 0.027;
+        private _cur = (group player) getVariable ["AU_defaultFrequency", ""];
+        _edit ctrlSetText _cur;
 
-                    // 3. Label
-                    private _label = _d ctrlCreate ["RscStructuredText", -1, _container];
-                    _label ctrlSetPosition [_x, _y, _labelW, _h];
-                    _label ctrlSetBackgroundColor [0.392, 0.388, 0.38, 1];
-                    _label ctrlSetStructuredText parseText "<t align='right' color='#000000' font='RobotoCondensedLight' shadow='0' size='0.9'>Freq </t>";
-                    _label ctrlSetTooltip "Squad radio frequency (20-9999)";
-                    _label ctrlCommit 0;
+        private _isLeader = (leader (group player)) == player;
+        _edit ctrlEnable _isLeader;
 
-                    // 4. Input Box
-                    private _edit = _d ctrlCreate ["RscEdit", -1, _container];
-                    _edit ctrlSetPosition [_x + _labelW + 0.004, _y, _inputW - 0.004, _h];
-                    _edit ctrlSetFont _font;
-                    _edit ctrlSetFontHeight _textSize;
-                    _edit ctrlSetTextColor [1, 1, 1, 1];
-                    _edit ctrlSetBackgroundColor [0, 0, 0, 0.6];
-
-                    private _cur = (group player) getVariable ["AU_defaultFrequency", ""];
-                    _edit ctrlSetText _cur;
-
-                    // Check Squad Leader permissions
-                    private _isLeader = (leader (group player)) == player;
-                    
-                    // Enable/Disable control based on leadership
-                    _edit ctrlEnable _isLeader;
-
-                    if (!_isLeader) then {
-                        _edit ctrlSetTooltip "Only the squad leader can edit the frequency.";
-                    };
-
-                    _edit ctrlCommit 0;
-
-                    uiNamespace setVariable ["AU_FreqEdit", _edit];
-
-                    // Trigger submit on losing focus
-                    _edit ctrlAddEventHandler ["KillFocus", {
-                        params ["_control"];
-                        [_control] call AU_fnc_submitFrequency;
-                    }];
-
-                    // Trigger submit when screen closes
-                    _d displayAddEventHandler ["Unload", {
-                        private _ed = uiNamespace getVariable ["AU_FreqEdit", controlNull];
-                        if (!isNull _ed) then {
-                            [_ed] call AU_fnc_submitFrequency;
-                        };
-                    }];
-                };
-            };
-        } else {
-            if (_injected) then {
-                _injected = false;
-                uiNamespace setVariable ["AU_FreqEdit", nil];
-            };
+        if (!_isLeader) then {
+            _edit ctrlSetTooltip "Only the squad leader can edit the frequency.";
         };
 
-        sleep 0.5;
+        _edit ctrlCommit 0;
+
+        // Save handlers
+        _edit ctrlAddEventHandler ["KillFocus", {
+            params ["_control"];
+            [_control] call AU_fnc_submitFrequency;
+        }];
+
+        _d displayAddEventHandler ["Unload", {
+            params ["_display"];
+            private _ed = _display displayCtrl 60100;
+            if (!isNull _ed) then {
+                [_ed] call AU_fnc_submitFrequency;
+            };
+        }];
+    };
+};
+
+// Robust display monitor loop
+[] spawn {
+    while {true} do {
+        waitUntil {
+            sleep 0.5;
+            !isNull (findDisplay 60490)
+        };
+
+        private _display = findDisplay 60490;
+
+        waitUntil {
+            sleep 0.05;
+            isNull (findDisplay 60490) || {!isNull ((findDisplay 60490) displayCtrl 10677)}
+        };
+
+        if (!isNull _display && {isNull (_display displayCtrl 60100)}) then {
+            [_display] call AU_fnc_injectFrequencyControl;
+        };
+
+        waitUntil {
+            sleep 0.5;
+            isNull (findDisplay 60490)
+        };
     };
 };
