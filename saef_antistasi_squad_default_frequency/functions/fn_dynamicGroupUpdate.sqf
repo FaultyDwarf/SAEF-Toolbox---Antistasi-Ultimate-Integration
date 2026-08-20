@@ -66,16 +66,21 @@ AU_fnc_injectFrequencyControl = {
         private _labelPos  = ctrlPosition _scoreLabel;
         private _fillPos   = ctrlPosition _scoreFill;
 
-    // 1. Calculate positions using Private checkbox height and exact native gap
+        // 1. Calculate spacing using UI Pixel steps (pixelH * 2 creates the exact native divider line)
         private _x       = _labelPos select 0;
         private _labelW  = _labelPos select 2;
         private _inputW  = _fillPos select 2;
         private _h       = _labelPos select 3;
         
-        // Exact gap calculation: Private Y + Private Height + gap spacing
-        private _chkH    = _chkPos select 3;
-        private _rowGap  = 0.003; 
-        private _y       = (_chkPos select 1) + _chkH + _rowGap;
+        // Exact 1-2 pixel divider spacing seen between Score/Side/You rows
+        private _rowGap  = pixelH * 2; 
+        private _y       = (_chkPos select 1) + _h + _rowGap;
+
+        // Dynamic background color matching native control tint
+        private _nativeBgColor = ctrlBackgroundColor _scoreLabel;
+        if (count _nativeBgColor == 0 || {(_nativeBgColor select 3) == 0}) then {
+            _nativeBgColor = [0.392, 0.388, 0.38, 0.7];
+        };
 
         // 2. Adjust Listbox position cleanly
         private _spacing    = 0.008;
@@ -86,15 +91,15 @@ AU_fnc_injectFrequencyControl = {
         _listBox ctrlSetPosition [_listPos select 0, _newListY, _listPos select 2, _newListH];
         _listBox ctrlCommit 0;
 
-        // 3. Create Label ("Freq") — Matches native UI grey background & font weight perfectly
+        // 3. Create Label ("Freq")
         private _label = _d ctrlCreate ["RscStructuredText", -1, _container];
         _label ctrlSetPosition [_x, _y, _labelW, _h];
-        _label ctrlSetBackgroundColor [1, 1, 1, 0.25]; // Exact native UI row tint
-        _label ctrlSetStructuredText parseText "<t align='right' valign='middle' color='#000000' font='RobotoCondensed' shadow='0' size='0.8'>Freq&#160;</t>";
+        _label ctrlSetBackgroundColor _nativeBgColor;
+        _label ctrlSetStructuredText parseText "<t align='right' valign='middle' color='#000000' font='RobotoCondensedBold' shadow='0' size='0.8'>Freq&#160;</t>";
         _label ctrlSetTooltip "Squad radio frequency (20-9999 MHz)";
         _label ctrlCommit 0;
 
-        // 4. Create Input Edit Box
+        // 4. Create Input Edit Box (uses identical _y position)
         private _edit = _d ctrlCreate ["RscEdit", 60100, _container];
         _edit ctrlSetPosition [_x + _labelW, _y, _inputW, _h];
         _edit ctrlSetFont "PuristaMedium";
