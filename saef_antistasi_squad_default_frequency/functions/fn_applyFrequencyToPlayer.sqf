@@ -1,38 +1,23 @@
 /*
- AU_SquadRadio_fnc_applyFrequencyToPlayer.sqf
- Client-side. Runs on clients via remoteExec from server.
- Usage: [playerUnit, "65.12"] remoteExec ["AU_SquadRadio_fnc_applyFrequencyToPlayer", 0];
+    fn_applyFrequencyToPlayer.sqf
+    Client-side helper called via remoteExec from server
 */
 params ["_unit", "_freqStr"];
 
-// only act for the local player unit
-if (!isPlayer _unit) exitWith {false};
-if (_unit != player) exitWith {false};
+// Only execute on the local player
+if (!isPlayer _unit || {_unit != player}) exitWith { false };
 
-// store assigned freq on player for other scripts/monitoring
+// Store assigned frequency on the player object
 player setVariable ["AU_assignedFrequency", _freqStr, true];
 
-// check TFAR presence
-if (!isClass (configFile >> "CfgPatches" >> "task_force_radio")) then {
-    hint format ["[AU] TFAR not present locally; stored desired frequency: %1", _freqStr];
-    exitWith {false};
+// If player has a shortwave radio right now, apply it immediately
+if (call TFAR_fnc_haveSWRadio) then {
+    private _radio = call TFAR_fnc_activeSwRadio;
+    if (!isNil "_radio") then {
+        [_radio, 1, _freqStr] call TFAR_fnc_SetChannelFrequency;
+        [_radio, 2, 50] call TFAR_fnc_SetChannelFrequency;
+        hintSilent format ["[AU] Squad radio frequency updated: %1 MHz", _freqStr];
+    };
 };
 
-// use TFAR public function (personal SW radio)
-private _ok = false;
-try {
-    _freqStr call TFAR_fnc_setPersonalRadioFrequency;
-    _ok = true;
-} catch {
-    _ok = false;
-};
-
-// optional: set LR too if you want
-// if (!_ok) then { _freqStr call TFAR_fnc_setLongRangeRadioFrequency; _ok = true; };
-
-if (_ok) then {
-    hintSilent format ["[AU] Squad default frequency set to %1 MHz", _freqStr];
-} else {
-    hint format ["[AU] Failed to set TFAR frequency locally; stored value: %1", _freqStr];
-};
-_ok
+true

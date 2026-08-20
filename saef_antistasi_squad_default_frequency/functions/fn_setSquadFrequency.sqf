@@ -1,29 +1,45 @@
 /*
- AU_SquadRadio_fnc_setSquadFrequency.sqf
- Server-side setter. Expected to run on the server (remoteExec target 2).
- Usage: [_group, "65.12"] remoteExec ["AU_SquadRadio_fnc_setSquadFrequency", 2];
+    fn_setSquadFrequency.sqf
 */
-params ["_group", "_freqRaw"];
 
-if (isNil "_group" || !isGroup _group) exitWith {false};
+params ["_group", "_freqRaw", "_caller"];
 
-// sanitize
-private _freq = (str _freqRaw) call BIS_fnc_trim;
+if (isNil "_group") exitWith {false};
+
+if ((typeName _group) != "GROUP") exitWith {false};
+
+private _freq = str _freqRaw;
+
 if (_freq == "") exitWith {false};
-private _num = try { parseNumber _freq } catch { nil };
-if (isNil "_num") exitWith {false};
-// optional range check
+
+// Parse number
+private _num = parseNumber _freq;
+if (_num == 0 && _freq != "0") exitWith {false};
+
+// Optional range check
 if ((_num < 20) || (_num > 9999)) exitWith {false};
 
-// store on group (replicated to clients)
+// Permission check: allow server or group leader
+private _allowed = false;
+if (isServer) then {
+    _allowed = true;
+};
+if (!isNull _caller) then {
+    if ((leader _group) isEqualTo _caller) then {
+        _allowed = true;
+    };
+};
+if (!_allowed) exitWith {false};
+
+// Store on group and replicate
 _group setVariable ["AU_defaultFrequency", _freq, true];
 
-// apply to current members: ask all clients to apply locally for their player unit
+// Ask clients to apply locally for their player unit
 {
     [_x, _freq] remoteExec ["AU_SquadRadio_fnc_applyFrequencyToPlayer", 0];
 } forEach units _group;
 
-// notify squad members (server-side)
+// Notify squad members (server-side)
 {
     _x sideChat format ["[Squad] Default radio frequency set to %1 MHz", _freq];
 } forEach units _group;
