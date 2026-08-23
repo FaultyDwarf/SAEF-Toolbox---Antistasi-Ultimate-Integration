@@ -54,61 +54,66 @@ AU_fnc_injectFrequencyControl = {
     // Don't inject twice on the same display
     if (!isNull (_d displayCtrl 60100)) exitWith {};
 
-    private _container  = _d displayCtrl 10677; // SectionManage container
-    private _privateChk = _d displayCtrl 11177; // CheckboxPrivate
-    private _scoreLabel = _d displayCtrl 9386;  // TextPlayerScore ("Score")
-    private _scoreFill  = _d displayCtrl 9389;  // TextPlayerScoreFill (Value)
-    private _listBox    = _d displayCtrl 9878;  // ListboxManage
+    private _container   = _d displayCtrl 10677; // SectionManage container
+    private _privateChk  = _d displayCtrl 11177; // CheckboxPrivate
+    private _scoreLabel  = _d displayCtrl 9386;  // TextPlayerScore ("Score")
+    private _scoreFill   = _d displayCtrl 9389;  // TextPlayerScoreFill (Value)
+    private _privateLbl  = _d displayCtrl 9390;  // TextPrivate ("Private" label)
+    private _listBox     = _d displayCtrl 9878;  // ListboxManage
 
-    if (!isNull _container && !isNull _privateChk && !isNull _listBox && !isNull _scoreLabel && !isNull _scoreFill) then {
-        private _chkPos    = ctrlPosition _privateChk;
-        private _listPos   = ctrlPosition _listBox;
+    if (!isNull _container && !isNull _privateChk && !isNull _privateLbl && !isNull _listBox && !isNull _scoreLabel && !isNull _scoreFill) then {
+        private _listPos   = ctrlPosition _listBox; // captured BEFORE we move it
         private _labelPos  = ctrlPosition _scoreLabel;
         private _fillPos   = ctrlPosition _scoreFill;
+        private _privPos   = ctrlPosition _privateLbl;
 
-        // 1. Calculate spacing using UI Pixel steps (pixelH * 2 creates the exact native divider line)
-        private _x       = _labelPos select 0;
-        private _labelW  = _labelPos select 2;
+        /// 1. Calculate Y position
+        private _x       = _privPos select 0;
+        private _labelW  = _privPos select 2;
         private _inputW  = _fillPos select 2;
-        private _h       = _labelPos select 3;
-        
-        // Exact 1-2 pixel divider spacing seen between Score/Side/You rows
-        private _rowGap  = pixelH * 2; 
-        private _y       = (_chkPos select 1) + _h + _rowGap;
+        private _h       = _privPos select 3;
 
-        // Dynamic background color matching native control tint
-        private _nativeBgColor = ctrlBackgroundColor _scoreLabel;
-        if (count _nativeBgColor == 0 || {(_nativeBgColor select 3) == 0}) then {
-            _nativeBgColor = [0.392, 0.388, 0.38, 0.7];
+        // Measure the REAL distance between two existing rows (Score ->
+        // Private) instead of guessing a gap. This is the exact pitch the
+        // game itself uses, including whatever built-in margin sits
+        // between rows, so continuing the same sequence for the Freq row
+        // reproduces the native spacing pixel-for-pixel.
+        private _pitch   = (_privPos select 1) - (_labelPos select 1);
+
+        // Anchor one more row below Private, using that measured pitch.
+        private _y       = (_privPos select 1) + _pitch;
+
+        private _bgColor = ctrlBackgroundColor _scoreLabel;
+        if (count _bgColor == 0 || {(_bgColor select 3) == 0}) then {
+            _bgColor = [0.392, 0.388, 0.38, 0.7];
         };
 
-        // 2. Adjust Listbox position cleanly
-        private _spacing    = 0.008;
-        private _newListY   = _y + _h + _spacing;
-        private _listHDelta = _newListY - (_listPos select 1);
-        private _newListH   = (_listPos select 3) - _listHDelta;
+        // 2. Push the listbox down by exactly one real row-pitch to make room
+        private _newListY   = (_listPos select 1) + _pitch;
+        private _newListH   = (_listPos select 3) - _pitch;
 
         _listBox ctrlSetPosition [_listPos select 0, _newListY, _listPos select 2, _newListH];
         _listBox ctrlCommit 0;
 
         // 3. Create Label ("Freq")
-        private _label = _d ctrlCreate ["RscStructuredText", -1, _container];
+        private _label = _d ctrlCreate ["SquadFreqLabel", -1, _container];
         _label ctrlSetPosition [_x, _y, _labelW, _h];
-        _label ctrlSetBackgroundColor _nativeBgColor;
-        _label ctrlSetStructuredText parseText "<t align='right' valign='middle' color='#000000' font='RobotoCondensedBold' shadow='0' size='0.8'>Freq&#160;</t>";
-        _label ctrlSetTooltip "Squad radio frequency (20-9999 MHz)";
+        _label ctrlSetBackgroundColor _bgColor;
         _label ctrlCommit 0;
 
-        // 4. Create Input Edit Box (uses identical _y position)
-        private _edit = _d ctrlCreate ["RscEdit", 60100, _container];
-        _edit ctrlSetPosition [_x + _labelW, _y, _inputW, _h];
+        // 4. Create Input Edit Box
+        private _editH = _h;
+        private _editY = _y + ((_h - _editH) / 2) + (_h * 0.04);
+        private _edit  = _d ctrlCreate ["RscEdit", 60100, _container];
+        _edit ctrlSetPosition [_x + _labelW, _editY, _inputW, _editH];
         _edit ctrlSetFont "PuristaMedium";
-        _edit ctrlSetFontHeight (_h * 0.72);
+        _edit ctrlSetFontHeight (_editH * 0.8);
         _edit ctrlSetTextColor [1, 1, 1, 1];
         _edit ctrlSetBackgroundColor [0, 0, 0, 0.6];
 
-        private _cur = (group player) getVariable ["AU_defaultFrequency", ""];
-        _edit ctrlSetText _cur;
+        // Populate with current squad frequency
+        private _curFreq = (group player) getVariable ["AU_defaultFrequency", ""];
+        _edit ctrlSetText _curFreq;
 
         private _isLeader = (leader (group player)) == player;
         _edit ctrlEnable _isLeader;

@@ -1,91 +1,92 @@
 /*
     fn_radioAutoProgrammer.sqf
-    Monitors player inventory and applies frequencies ONLY ONCE.
-    Re-triggers only on:
-      - Acquiring a new radio (e.g. from Arsenal)
-      - Respawn
-      - Group / Squad Change
-      - Squad Leadership Transfer
-      - Squad Frequency Update
+    Event-driven radio programmer. Only runs when inventory closes or respawn occurs.
 */
 
-[] spawn {
-    waitUntil { !isNull player && {time > 0} };
+// Function that handles the actual radio programming logic
+AU_fnc_checkAndProgramRadio = {
+    // Exit if player doesn't have a shortwave radio yet
+    if (!alive player || {!(call TFAR_fnc_haveSWRadio)}) exitWith {};
 
-    // Reset tracking variables on player respawn
-    player addEventHandler ["Respawn", {
-        params ["_unit", "_corpse"];
-        _unit setVariable ["AU_lastProgrammedRadio", ""];
-        _unit setVariable ["AU_lastProgrammedFreq", ""];
-        _unit setVariable ["AU_lastGroup", grpNull];
-        _unit setVariable ["AU_lastIsLeader", false];
-    }];
+    private _radio = call TFAR_fnc_activeSwRadio;
+    if (isNil "_radio") exitWith {};
 
-    while {alive player} do {
-        // Wait until player actually has a shortwave radio equipped
-        waitUntil {
-            sleep 1;
-            !alive player || {call TFAR_fnc_haveSWRadio}
+    private _currentRadioID = _radio;
+    private _currentGroup    = group player;
+    private _isLeader        = (leader _currentGroup) == player;
+
+    // Get assigned frequency
+    private _targetFreq = player getVariable ["AU_assignedFrequency", ""];
+    if (_targetFreq == "") then {
+        _targetFreq = _currentGroup getVariable ["AU_defaultFrequency", ""];
+        if (_targetFreq != "") then {
+            player setVariable ["AU_assignedFrequency", _targetFreq, true];
+        };
+    };
+
+    private _lastRadio    = player getVariable ["AU_lastProgrammedRadio", ""];
+    private _lastFreq     = player getVariable ["AU_lastProgrammedFreq", ""];
+    private _lastGroup    = player getVariable ["AU_lastGroup", grpNull];
+    private _lastIsLeader = player getVariable ["AU_lastIsLeader", false];
+
+    private _needsUpdate = false;
+    if (_targetFreq != "" && {_targetFreq != _lastFreq}) then { _needsUpdate = true; };
+    if (_currentRadioID != _lastRadio)                      then { _needsUpdate = true; };
+    if (_currentGroup != _lastGroup)                        then { _needsUpdate = true; };
+    if (_isLeader != _lastIsLeader)                          then { _needsUpdate = true; };
+
+    if (_needsUpdate) then {
+        // Small delay so TFAR can register local radio settings
+        sleep 0.5;
+
+        // Program Channel 1 (Squad Main Frequency)
+        if (_targetFreq != "") then {
+            [_radio, 1, _targetFreq] call TFAR_fnc_SetChannelFrequency;
         };
 
-        if (!alive player) exitWith {};
-
-        private _radio = call TFAR_fnc_activeSwRadio;
-
-        if (!isNil "_radio") then {
-            // Get current environmental state
-            private _currentRadioID = _radio; // Unique TFAR radio ID string
-            private _currentGroup    = group player;
-            private _isLeader        = (leader _currentGroup) == player;
-            
-            private _assignedFreq    = player getVariable ["AU_assignedFrequency", ""];
-            if (_assignedFreq == "") then {
-                _assignedFreq = _currentGroup getVariable ["AU_defaultFrequency", ""];
-            };
-
-            // Fetch stored tracking state from player
-            private _lastRadio    = player getVariable ["AU_lastProgrammedRadio", ""];
-            private _lastFreq     = player getVariable ["AU_lastProgrammedFreq", ""];
-            private _lastGroup    = player getVariable ["AU_lastGroup", grpNull];
-            private _lastIsLeader = player getVariable ["AU_lastIsLeader", false];
-
-            // Evaluate if any re-trigger conditions are met
-            private _needsUpdate = false;
-
-            if (_assignedFreq != "" && {_assignedFreq != _lastFreq}) then { _needsUpdate = true; };
-            if (_currentRadioID != _lastRadio)                      then { _needsUpdate = true; };
-            if (_currentGroup != _lastGroup)                        then { _needsUpdate = true; };
-            if (_isLeader != _lastIsLeader)                          then { _needsUpdate = true; };
-
-            // Execute programming ONLY if state changed
-            if (_needsUpdate) then {
-                // 1. Set Channel 1 (Squad Main Frequency)
-                if (_assignedFreq != "") then {
-                    [_radio, 1, _assignedFreq] call TFAR_fnc_SetChannelFrequency;
-                };
-
-                // 2. If Squad Leader, set Channel 2 to Command Net (50 MHz) as Additional
-                if (_isLeader) then {
-                    [_radio, 8, "50"] call TFAR_fnc_SetChannelFrequency; // Target Channel 8 (1-indexed)
-                    [_radio, 7] call TFAR_fnc_setAdditionalSwChannel;    // Index 1 = Channel 7 (0-indexed)
-                } else {
-                    // If player lost leadership, clear additional channel setting
-                    [_radio, -1] call TFAR_fnc_setAdditionalSwChannel; 
-                };
-
-                // Save updated state to prevent looping
-                player setVariable ["AU_lastProgrammedRadio", _currentRadioID];
-                player setVariable ["AU_lastProgrammedFreq", _assignedFreq];
-                player setVariable ["AU_lastGroup", _currentGroup];
-                player setVariable ["AU_lastIsLeader", _isLeader];
-
-                if (_assignedFreq != "") then {
-                    private _msg = format ["[Squad Radio] Auto-configured! Main: %1 MHz%2", _assignedFreq, if (_isLeader) then {" | Ch 8: 50 MHz (Command)"} else {""}];
-                    systemChat _msg;
-                };
-            };
+        // Program Channel 8 if Leader (Command Net 50 MHz)
+        if (_isLeader) then {
+            [_radio, 8, "50"] call TFAR_fnc_SetChannelFrequency;
+            [_radio, 7] call TFAR_fnc_setAdditionalSwChannel; 
+        } else {
+            [_radio, -1] call TFAR_fnc_setAdditionalSwChannel; 
         };
 
-        sleep 2;
+        // Store state to prevent duplicate triggers on the same radio
+        player setVariable ["AU_lastProgrammedRadio", _currentRadioID];
+        player setVariable ["AU_lastProgrammedFreq", _targetFreq];
+        player setVariable ["AU_lastGroup", _currentGroup];
+        player setVariable ["AU_lastIsLeader", _isLeader];
+
+        if (_targetFreq != "") then {
+            private _msg = format ["[Squad Radio] Auto-configured! Main: %1 MHz%2", _targetFreq, if (_isLeader) then {" | Ch 8: 50 MHz (Command)"} else {""}];
+            systemChat _msg;
+        };
     };
 };
+
+
+NOT WORKING - radio not being set
+// --- EVENT HANDLERS ---
+
+// 1. Trigger when closing Inventory or Arsenal (When they pick up a radio)
+player addEventHandler ["InventoryClosed", {
+    [] spawn AU_fnc_checkAndProgramRadio;
+}];
+
+// Catch BI Virtual Arsenal exit
+[missionNamespace, "arsenalClosed", {
+    [] spawn AU_fnc_checkAndProgramRadio;
+}] call BIS_fnc_addScriptedEventHandler;
+
+// 2. Clear state and prepare for re-trigger upon Respawn
+player addEventHandler ["Respawn", {
+    params ["_newUnit", "_corpse"];
+    
+    // Clear last programmed radio state so the next radio check executes fresh
+    _newUnit setVariable ["AU_lastProgrammedRadio", ""];
+    _newUnit setVariable ["AU_lastProgrammedFreq", ""];
+    
+    // Attempt initial check in case player respawns with a loadout/radio preset
+    [] spawn AU_fnc_checkAndProgramRadio;
+}];
