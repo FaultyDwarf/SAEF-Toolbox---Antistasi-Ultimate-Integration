@@ -39,8 +39,14 @@ if (isNil "AU_fnc_submitFrequency") then {
             _control ctrlSetText _cur;
         };
 
+        // Broadcast default squad frequency to group & update local player state
         (group player) setVariable ["AU_defaultFrequency", _freq, true];
-        [group player, _freq, player] remoteExec ["AU_SquadRadio_fnc_setSquadFrequency", 2];
+        player setVariable ["AU_assignedFrequency", _freq, true];
+
+        // Instantly check and program radio upon submitting edit
+        if (!isNil "AU_fnc_checkAndProgramRadio") then {
+            [] spawn AU_fnc_checkAndProgramRadio;
+        };
 
         ["Squad Radio", format ["Squad frequency set to %1 MHz", _freq]] call AU_fnc_notify;
     };
@@ -62,25 +68,18 @@ AU_fnc_injectFrequencyControl = {
     private _listBox     = _d displayCtrl 9878;  // ListboxManage
 
     if (!isNull _container && !isNull _privateChk && !isNull _privateLbl && !isNull _listBox && !isNull _scoreLabel && !isNull _scoreFill) then {
-        private _listPos   = ctrlPosition _listBox; // captured BEFORE we move it
+        private _listPos   = ctrlPosition _listBox;
         private _labelPos  = ctrlPosition _scoreLabel;
         private _fillPos   = ctrlPosition _scoreFill;
         private _privPos   = ctrlPosition _privateLbl;
 
-        /// 1. Calculate Y position
+        // 1. Calculate Y position
         private _x       = _privPos select 0;
         private _labelW  = _privPos select 2;
         private _inputW  = _fillPos select 2;
         private _h       = _privPos select 3;
 
-        // Measure the REAL distance between two existing rows (Score ->
-        // Private) instead of guessing a gap. This is the exact pitch the
-        // game itself uses, including whatever built-in margin sits
-        // between rows, so continuing the same sequence for the Freq row
-        // reproduces the native spacing pixel-for-pixel.
         private _pitch   = (_privPos select 1) - (_labelPos select 1);
-
-        // Anchor one more row below Private, using that measured pitch.
         private _y       = (_privPos select 1) + _pitch;
 
         private _bgColor = ctrlBackgroundColor _scoreLabel;
@@ -88,7 +87,7 @@ AU_fnc_injectFrequencyControl = {
             _bgColor = [0.392, 0.388, 0.38, 0.7];
         };
 
-        // 2. Push the listbox down by exactly one real row-pitch to make room
+        // 2. Push the listbox down
         private _newListY   = (_listPos select 1) + _pitch;
         private _newListH   = (_listPos select 3) - _pitch;
 
@@ -130,11 +129,23 @@ AU_fnc_injectFrequencyControl = {
             [_control] call AU_fnc_submitFrequency;
         }];
 
+        // UNLOAD HANDLER: Triggers when the Dynamic Groups menu closes (Joining squad or exiting menu)
         _d displayAddEventHandler ["Unload", {
             params ["_display"];
+            
+            // Save frequency if editing
             private _ed = _display displayCtrl 60100;
             if (!isNull _ed) then {
                 [_ed] call AU_fnc_submitFrequency;
+            };
+
+            // Update player assigned frequency from current group
+            private _newGroupFreq = (group player) getVariable ["AU_defaultFrequency", ""];
+            player setVariable ["AU_assignedFrequency", _newGroupFreq, true];
+            
+            // Trigger radio configuration check for the new squad
+            if (!isNil "AU_fnc_checkAndProgramRadio") then {
+                [] spawn AU_fnc_checkAndProgramRadio;
             };
         }];
     };
