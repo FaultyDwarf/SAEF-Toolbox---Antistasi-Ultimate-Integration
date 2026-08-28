@@ -16,6 +16,7 @@ private _hasContact = "enoch" in A3A_enabledDLC;
 ["flag", "Flag_NATO_F"] call _fnc_saveToTemplate;
 ["flagTexture", "\A3\Data_F\Flags\Flag_NATO_CO.paa"] call _fnc_saveToTemplate;
 ["flagMarkerType", "flag_NATO"] call _fnc_saveToTemplate;
+["attributeLowAir", true] call _fnc_saveToTemplate;
 
 //////////////////////////
 //       Vehicles       //

@@ -14,6 +14,7 @@ private _hasContact = "enoch" in A3A_enabledDLC;
 ["flag", "Flag_AAF_F"] call _fnc_saveToTemplate;
 ["flagTexture", "a3\data_f\flags\flag_aaf_co.paa"] call _fnc_saveToTemplate;
 ["flagMarkerType", "flag_AAF"] call _fnc_saveToTemplate;
+["attributeLowAir", true] call _fnc_saveToTemplate;
 
 //////////////////////////
 //       Vehicles       //
