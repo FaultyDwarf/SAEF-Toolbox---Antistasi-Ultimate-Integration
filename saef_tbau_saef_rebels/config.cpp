@@ -1,23 +1,35 @@
 /*
 	saef_tbau_saef_rebels
 
-	Puts the SAEF logo on the Aegis rebel template (Aegis_FIA), in the three
-	places Antistasi draws it from:
+	Ships modified copies of Antistasi's own Aegis faction template scripts - the same
+	pattern used by community "extender" mods for Antistasi Ultimate (see
+	github.com/Westalgie/A3UExtender): Templates\Templates.hpp points each affected
+	template's basepath/file at our copy under Templates\Templates\, so Antistasi's own,
+	unmodified core keeps loading templates exactly as it always does - it just loads ours
+	instead of the original for these specific templates.
 
-		faction-select preview   config merge, Templates\Templates.hpp
-		in-game flagpole         function override,
-		                         Templates\functions\fn_compatibilityLoadFaction.sqf
-		strategic map marker     CfgMarkers class, CfgMarkers.hpp
+		Aegis_FIA (Rebels)        SAEF name/flag/map-marker branding
+		Aegis_AAF (Occupants)     air fleet re-pricing, Titan-to-NLAW swap
+		Aegis_NATO_Arid (Invaders) air fleet re-pricing, roster swaps, Titan-to-NLAW swap
 
-	Everything else about the faction is left as Antistasi defines it.
+	Altis-only scope: Aegis_NATO_Temperate and Aegis_NATO_Tropical are not touched and
+	keep loading Aegis's own, unmodified originals.
 
-	Client-side, unlike the other PBOs in this mod: the textures and the
-	CfgMarkers class are resolved by whichever machine renders them, so this has
-	to be in the player preset.
+	Everything else about each faction (equipment, vehicles, loadouts not listed above) is
+	left exactly as that copy's own upstream original defines it - see each .sqf's own
+	header comment for precisely what was changed.
 
-	All texture and script paths below are resolved against $PBOPREFIX$ at load
-	time. A wrong prefix shows up as a missing flag or a CfgMarkers lookup
-	failure in game, not as a build error.
+	Antistasi's own reads basepath/file straight off the template's config class, so
+	pointing those at our folder is the entire override - no CfgFunctions override, no
+	copy of compatibilityLoadFaction.
+
+	Client-side, unlike the other PBOs in this mod: the templates' textures and the
+	CfgMarkers class are resolved by whichever machine renders them, so this has to be in
+	the player preset.
+
+	All texture and script paths below are resolved against $PBOPREFIX$ at load time. A
+	wrong prefix shows up as a missing flag, a CfgMarkers lookup failure, or a faction
+	loading with Aegis's unmodified defaults in game - not as a build error.
 */
 
 class CfgPatches
@@ -37,20 +49,6 @@ class CfgPatches
 class A3A
 {
 	#include "Templates\Templates.hpp"
-};
-
-class CfgFunctions
-{
-	class A3A
-	{
-		class FunctionsTemplates
-		{
-			class compatibilityLoadFaction
-			{
-				file = "saef_tbau_saef_rebels\Templates\functions\fn_compatibilityLoadFaction.sqf";
-			};
-		};
-	};
 };
 
 #include "CfgMarkers.hpp"

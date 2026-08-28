@@ -6,7 +6,7 @@ Wires SAEF Toolbox features into Antistasi Ultimate. Three PBOs:
 |---|---|---|---|
 | `saef_toolbox_au_integration` | admin actions (Log StatTrack, invincibility) | server | `cba_xeh` |
 | `saef_tbau_waverespawn` | wave respawn + its setup-screen parameters | server, plus setup admins | `cba_xeh`, `A3A_core`, `SAEF_TOOLBOX_RESPAWN` |
-| `saef_tbau_saef_rebels` | SAEF flag and map marker over the `Aegis_FIA` rebel template; also drops every Titan launcher (AT and AA) for Aegis AAF/NATO AI | **everyone** | `A3A_core` |
+| `saef_tbau_saef_rebels` | Modified copies of three Aegis faction templates (Rebels, AAF, NATO Arid - Altis only): SAEF flag/map marker on `Aegis_FIA`; planes removed, remaining air fleet re-pricing, roster swaps, and dropped Titan launchers (AT and AA) on AAF/NATO AI | **everyone** | `A3A_core` |
 
 **This now goes in the client preset**, which reverses what earlier versions of this
 README said. `saef_tbau_saef_rebels` (previously the standalone
@@ -213,35 +213,71 @@ desync that client's copy of `RespawnEnabled`, which was judged not worth the
 complexity. If it turns into a real complaint the two options are a guard variable
 upstream in the toolbox, or compensating the player server-side on the resulting death.
 
-### SAEF rebel flag and marker
+### SAEF rebel identity, and AAF/NATO balance
 
-`saef_tbau_saef_rebels`, previously the standalone `@SAEF_antistasi_bridge`. Puts the
-SAEF logo on the `Aegis_FIA` rebel template in three places, each a separate Antistasi
-data path: the faction-select preview (config merge in `Templates\Templates.hpp`), the
-in-game flagpole texture (function override that appends one line to the template file
-list), and the strategic map marker (a `CfgMarkers` class). Its own
-[README](saef_tbau_saef_rebels/README.md) has the full reasoning.
+`saef_tbau_saef_rebels`, previously the standalone `@SAEF_antistasi_bridge`. Ships
+modified **copies** of three of Antistasi's own Aegis faction template scripts -
+`Aegis_Reb_FIA.sqf`, `Aegis_AI_AAF.sqf`, and `Aegis_AI_NATO_Arid.sqf` - and points
+each template's `basepath`/`file` config properties at our copy instead of the original
+(the same pattern used by community "extender" mods for Antistasi Ultimate, e.g.
+[A3UExtender](https://github.com/Westalgie/A3UExtender)). Antistasi's own template-loading
+code (`A3A_fnc_compatibilityLoadFaction`) is completely unmodified - no copy of it exists
+in this mod at all; it just ends up loading our file instead of Aegis's for these three
+templates. Its own [README](saef_tbau_saef_rebels/README.md) has the full reasoning.
+
+**`Aegis_NATO_Arid`, not `Aegis_NATO_Temperate` - despite the name.** This integration's
+real Invaders template on Altis is `Aegis_NATO_Arid`, confirmed from the server RPT via
+the `saef_toolbox_au_integration` postInit check described below - `Aegis_NATO_Temperate`
+sounds like the obvious Altis pick and isn't. `Aegis_NATO_Temperate` and
+`Aegis_NATO_Tropical` have no copy in this mod and are never reopened in config, so they
+keep loading Aegis's own, completely unmodified originals.
+
+`Aegis_Reb_FIA.sqf` puts the SAEF logo on the Rebels template in three places, each a
+separate Antistasi data path: the faction-select preview (config merge in
+`Templates\Templates.hpp`), the in-game flagpole texture, and the strategic map marker
+(a `CfgMarkers` class) - the latter two both set directly inside the copied script now,
+the same four lines Antistasi's own file has, just pointed at the SAEF assets.
+
+`Aegis_AI_AAF.sqf` and `Aegis_AI_NATO_Arid.sqf` remove fixed-wing planes entirely for
+both factions - `vehiclesPlanesCAS`, `vehiclesPlanesAA`, and `vehiclesPlanesTransport`
+are all empty arrays, so neither side ever spawns a jet or transport plane of any kind.
+Every remaining air category (attack helis, transport helis, attack UAV, even the
+unarmed scout heli) is instead re-priced via `A3A_vehicleResourceCosts`, at roughly
+4x-12x the vanilla Aegis default, so a typical QRF/attack resource pool affords at most
+one such vehicle - nothing is removed there, just expensive. Every other vehicle either
+faction's own script can actually field on Altis - including DLC-conditional ones like
+the Western Sahara AA truck/APC variants - is explicitly priced too, at its vanilla
+default where it isn't part of the pricing pass, so the whole priceable roster is
+accounted for. NATO Arid also gets roster swaps (Aegis's own Apache in for the
+Blackfoot, Little Bird added as a transport option) - `Aegis_NATO_Temperate`/
+`Aegis_NATO_Tropical` are untouched by any of this, since their classnames are not
+interchangeable with Arid's and this mod has no copy of either file.
+
+Both `Aegis_AI_*.sqf` copies (not Rebels) also drop every Titan launcher those AI
+carry - AT role and AA role alike - leaving them with only the unguided `NLAW_F`. This
+runs as a post-process over each file's own already-generated unit loadouts (a shared
+`#include`d snippet, `SAEF_TitanToNLAW_Swap.sqf`) rather than editing the launcher pools
+before generation, because those pools are declared more than once per file (base loadout
+data, Special Forces, ...) and walking the resolved output afterward catches every
+generated unit type uniformly. No other faction pack is touched. Full reasoning and scope
+in the [same README](saef_tbau_saef_rebels/README.md).
 
 Merged in as-is apart from one thing: **every internal path was rewritten** from the old
 prefix `z\SAEF_antistasi\addons\main` to `saef_tbau_saef_rebels`, to match its
-`$PBOPREFIX$`. Six references across `config.cpp`, `CfgMarkers.hpp`, `Templates.hpp`,
-`fn_SAEF_flagOverride.sqf` and `fn_compatibilityLoadFaction.sqf`. These resolve at load
-time, not build time, so a stale one fails silently at runtime as a missing texture or a
-`No entry '....icon'` — not as a build error. Worth re-grepping if the prefix ever
+`$PBOPREFIX$`. These resolve at load time, not build time, so a stale one fails silently
+at runtime as a missing texture, a `No entry '....icon'`, or a faction silently loading
+Aegis's unmodified defaults - not as a build error. Worth re-grepping if the prefix ever
 changes again.
 
-Its `fn_compatibilityLoadFaction.sqf` is a frozen copy of Antistasi's own function with
-two additions, so it needs re-syncing if Antistasi changes that function upstream. That is
-the one real maintenance cost in this mod folder.
-
-The second addition is unrelated to the flag: on `Aegis_AI_AAF.sqf` and the three
-`Aegis_AI_NATO_*` climate files, it drops every Titan launcher those AI carry - AT role
-and AA role alike - and leaves them with only the unguided `NLAW_F`. It runs as a
-post-process over the already-built unit loadouts (`fn_SAEF_titanToNLAW.sqf`) rather
-than a file-list append, because the launcher weapon pools are private to each template
-file's own execution and never reach the shared closure the flag override relies on.
-No other faction pack is touched. Full reasoning and scope in the
-[same README](saef_tbau_saef_rebels/README.md).
+This `basepath`/`file` approach replaced an earlier version of this mod that overrode
+`A3A_fnc_compatibilityLoadFaction` wholesale (a frozen copy of Antistasi's own
+orchestration function, needing manual re-syncing whenever Antistasi changed it upstream)
+and appended small scripts to the file list it built. That also had a real bug: one shared
+append script served both AAF and NATO, and its NATO-only roster changes ran
+unconditionally regardless of which one was actually loading - AAF ended up flying NATO's
+Chinooks. Since each template now has its own separate, self-contained copy, that whole
+class of bug is structurally impossible: there's no shared script for one faction's
+change to leak into another's.
 
 ### Visibility
 
