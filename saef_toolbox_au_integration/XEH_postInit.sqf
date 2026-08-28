@@ -116,3 +116,70 @@ if (!isServer) exitWith {};
 
     diag_log "[SAEF_TBAU] broadcast admin action registration to clients (JIP-armed as SAEF_TBAU_AdminActions)";
 };
+
+[] spawn {
+    /*
+        Reports each side's live jet prices (A3A_vehicleResourceCosts) and air roster
+        arrays (vehiclesPlanesTransport/vehiclesHelisAttack/vehiclesHelisTransport) via
+        diag_log and a broadcast hint, read directly from A3A_faction_occ/A3A_faction_inv
+        once A3A_core has fully started.
+
+        Waits on A3A_startupState == "completed" rather than polling
+        A3A_vehicleResourceCosts/A3A_faction_occ/A3A_faction_inv directly:
+        A3A_fnc_initVarServer (which sets all three) runs behind fn_initServer.sqf's
+        admin setup-dialog gate ("waitUntil {!isNil "A3A_saveData"}"), which can take a
+        long time - the same reason saef_tbau_waverespawn's own postInit waits 1800s on
+        the same flag.
+    */
+    private _deadline = diag_tickTime + 1800;
+
+    waitUntil {
+        sleep 1;
+        ((missionNamespace getVariable ["A3A_startupState", ""]) isEqualTo "completed")
+        || {diag_tickTime > _deadline}
+    };
+
+    if ((missionNamespace getVariable ["A3A_startupState", ""]) isNotEqualTo "completed") exitWith {
+        diag_log "[SAEF_TBAU] Vehicle override check skipped: A3A_startupState did not reach 'completed' within 1800s.";
+    };
+
+    if (isNil "A3A_vehicleResourceCosts" || {isNil "A3A_faction_occ"} || {isNil "A3A_faction_inv"}) exitWith {
+        diag_log "[SAEF_TBAU] Vehicle override check skipped: A3A_startupState reached 'completed' but A3A_vehicleResourceCosts / A3A_faction_occ / A3A_faction_inv is still undefined - has A3A_core renamed one of these?";
+    };
+
+    private _fnc_reportSide = {
+        params ["_label", "_faction"];
+
+        private _name = _faction getOrDefault ["name", "?"];
+
+        // Jets: whatever this faction's own roster actually lists, priced against the
+        // live global table - not a hardcoded classname, so this works no matter which
+        // faction pack ended up loaded for this side.
+        private _jets = (_faction getOrDefault ["vehiclesPlanesCAS", []]) + (_faction getOrDefault ["vehiclesPlanesAA", []]);
+        private _jetReport = _jets apply { format ["%1=%2", _x, A3A_vehicleResourceCosts getOrDefault [_x, "unpriced"]] };
+
+        // Rosters: the exact arrays fn_createAttackForceAir.sqf/fn_createAttackForceLand.sqf
+        // pick from when spawning vehicles for this faction.
+        private _transportPlanes = _faction getOrDefault ["vehiclesPlanesTransport", []];
+        private _helisAttack = _faction getOrDefault ["vehiclesHelisAttack", []];
+        private _helisTransport = _faction getOrDefault ["vehiclesHelisTransport", []];
+
+        diag_log format [
+            "[SAEF_TBAU] %1 (%2) - jets [class=cost]: %3 | vehiclesPlanesTransport: %4 | vehiclesHelisAttack: %5 | vehiclesHelisTransport: %6",
+            _label, _name, _jetReport, _transportPlanes, _helisAttack, _helisTransport
+        ];
+
+        format [
+            "%1 (%2)\njets: %3\nplanesTransport: %4\nhelisAttack: %5\nhelisTransport: %6",
+            _label, _name, (_jetReport joinString ", "), (_transportPlanes joinString ", "),
+            (_helisAttack joinString ", "), (_helisTransport joinString ", ")
+        ]
+    };
+
+    private _occReport = ["Occupants", missionNamespace getVariable ["A3A_faction_occ", createHashMap]] call _fnc_reportSide;
+    private _invReport = ["Invaders", missionNamespace getVariable ["A3A_faction_inv", createHashMap]] call _fnc_reportSide;
+
+    [format ["[SAEF_TBAU] vehicle override check\n\n%1\n\n%2", _occReport, _invReport]] remoteExec ["hint", 0];
+
+    diag_log "[SAEF_TBAU] vehicle override check complete - see lines above for the live jet prices and air rosters actually in effect.";
+};
