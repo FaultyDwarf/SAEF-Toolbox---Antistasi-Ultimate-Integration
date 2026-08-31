@@ -1,12 +1,10 @@
 # saef_tbau_saef_rebels
 
-> Was the standalone `@SAEF_antistasi_bridge`; now one of the four PBOs in
-> `@SAEF_Toolbox_AU_Integration`. Every internal path was rewritten from the
-> old prefix `z\SAEF_antistasi\addons\main` to `saef_tbau_saef_rebels` to match
-> `$PBOPREFIX$`. Those resolve at load time, not build time, so a stale one
-> shows up as a missing flag texture, a `No entry '....icon'`, or a faction
-> silently loading Aegis's unmodified defaults at runtime - not as a build
-> failure. Re-grep if the prefix changes again.
+> One of the four PBOs in `@SAEF_Toolbox_AU_Integration`. Every internal path
+> uses the `saef_tbau_saef_rebels` prefix, matching `$PBOPREFIX$`. Those
+> resolve at load time, not build time, so a stale one shows up as a missing
+> flag texture, a `No entry '....icon'`, or a faction silently loading Aegis's
+> unmodified defaults at runtime - not as a build failure.
 >
 > Build with `build.ps1` in the parent folder - it packs all four PBOs.
 
@@ -25,14 +23,12 @@ up loading our file instead of Aegis's for these three templates.
 | `Aegis_NATO_Arid` (Invaders) | display name ("SAEF NATO"), air fleet re-pricing, roster swaps, Titan-to-NLAW, Aegis Police vehicles/loadouts | `Aegis_AI_NATO_Arid.sqf` |
 
 **`Aegis_NATO_Arid`, not `Aegis_NATO_Temperate` - despite the name.** This
-integration's actual Invaders template on Altis is `Aegis_NATO_Arid`,
-confirmed directly from the server RPT via the
-`saef_toolbox_au_integration` postInit check (see Testing below), which
-reports the real faction name that loaded. `Aegis_NATO_Temperate`'s name
-strongly suggests it's the Altis one - it isn't. Whichever NATO template is
-actually being used is worth re-confirming with that same check any time the
-setup screen's faction pick changes, rather than assumed from a template's
-name.
+integration's actual Invaders template on Altis is `Aegis_NATO_Arid`.
+`Aegis_NATO_Temperate`'s name strongly suggests it's the Altis one - it
+isn't. The `saef_toolbox_au_integration` postInit check reports the real
+faction name that loaded at runtime, and is the reliable way to confirm which
+NATO template is actually in play any time the setup screen's faction pick
+changes, rather than assuming from a template's name.
 
 **Altis-only scope, on purpose.** `Aegis_NATO_Temperate` and
 `Aegis_NATO_Tropical` are deliberately *not* reopened in `Templates.hpp` and
@@ -188,20 +184,19 @@ integration actually plays on Altis. Not extended to `Aegis_NATO_Temperate`/
 Arid's regardless (see below). Copying and pricing one of those two files the
 same way is how to extend this further.
 
-**Classnames are not interchangeable between NATO's climate files - this bit
-the first pass at this override.** `Aegis_AI_NATO_Arid.sqf` uses the plain,
-unprefixed Aegis/vanilla vehicle classes throughout (`B_MRAP_01_gmg_F`,
-`B_MBT_01_cannon_F`, `B_Heli_Attack_01_dynamicLoadout_F`, ...); the
-`Aegis_AI_NATO_Temperate.sqf` this mod targeted before the Arid/Temperate mixup
-was caught uses `"B_W_"`-prefixed reskins for nearly everything instead
-(`B_W_MRAP_01_gmg_F`, `B_W_MBT_01_cannon_F`, ...). Beyond the prefix, the
-actual rosters differ too: Arid has no Atlas transport plane in its default
-roster at all (only the Blackfish), two `uavsAttack` classes instead of three,
-and its Western Sahara DLC variants use a different suffix pattern entirely
+**Classnames are not interchangeable between NATO's climate files.**
+`Aegis_AI_NATO_Arid.sqf` uses the plain, unprefixed Aegis/vanilla vehicle
+classes throughout (`B_MRAP_01_gmg_F`, `B_MBT_01_cannon_F`,
+`B_Heli_Attack_01_dynamicLoadout_F`, ...); `Aegis_AI_NATO_Temperate.sqf` uses
+`"B_W_"`-prefixed reskins for nearly everything instead (`B_W_MRAP_01_gmg_F`,
+`B_W_MBT_01_cannon_F`, ...). Beyond the prefix, the actual rosters differ
+too: Arid has no Atlas transport plane in its default roster at all (only the
+Blackfish), two `uavsAttack` classes instead of three, and its Western Sahara
+DLC variants use a different suffix pattern entirely
 (`APC_Wheeled_01_command_base_lxWS` vs Temperate's
 `B_W_APC_Wheeled_01_command_lxWS`). Every classname in `Aegis_AI_NATO_Arid.sqf`
-was re-derived directly from that file's own roster arrays, not copied over
-from the Temperate work - see its own header comment for the full breakdown.
+is derived directly from that file's own roster arrays - see its own header
+comment for the full breakdown.
 
 **Every vehicle in AAF's and NATO Arid's actual Altis roster that can be
 priced at all now has an explicit entry.** `A3A_vehicleResourceCosts` only
@@ -257,16 +252,10 @@ BankRev + CfgConvert rather than trusting the template scripts alone. No new
 `requiredAddons` entry was needed in `config.cpp` as a result - Aegis is
 already a hard dependency of this whole integration.
 
-**Why the old "AAF flying NATO Chinooks" bug can't happen here.** An earlier
-version of this override (when it still targeted Temperate) lived in a script
-appended to *both* AAF's and NATO's file lists (since one shared script did
-both factions' pricing), and its NATO-only roster changes ran unconditionally
-every time - including while AAF loaded - silently overwriting AAF's own
-roster with NATO's classnames. That whole class of bug is structurally
-impossible here: this code lives directly inside NATO Arid's own file, and
-each faction's `A3A_fnc_loadFaction` call gets its own separate, independent
-data store. There is no shared script for a roster change made in one
-faction's file to leak into another's.
+**Roster changes can't leak between factions.** This code lives directly
+inside NATO Arid's own file, and each faction's `A3A_fnc_loadFaction` call
+gets its own separate, independent data store - there is no shared script for
+a roster change made in one faction's file to affect another's.
 
 ### AAF and NATO Arid: Aegis Police vehicles and loadouts
 
@@ -275,8 +264,7 @@ separate **`@AegisPolice`** mod onto their existing `vehiclesPolice` roster
 and their `_policeLoadoutData` pools (consumed by the two generated "police"
 unit types, `police_Standard`/`police_SquadLeader`) - Antistasi's own
 vanilla-Contact-DLC offroad and gear stay in play too, alongside Aegis
-Police's, rather than being replaced. An earlier pass did this as a full
-replacement; both files now add to the existing content instead.
+Police's, rather than being replaced.
 
 The vehicle roster (`_policeVehs append [...]`, below) still literally
 appends after the vanilla `_hasContact` block resolves, since that block is
@@ -315,17 +303,13 @@ every other unit type in each file. Source gear pulled from
 (`getUnitLoadout` dumps, classnames confirmed real against
 `characters_f_police.pbo`, same method used for the vehicles above).
 
-**Shotguns live only in `"shotGuns"`, not also in `"SMGs"`.** Both files'
-vanilla `"SMGs"` pools originally mixed a shotgun (`sgun_M4_F`) in with real
-SMGs/rifles, because `_policeTemplate` only ever rolls a primary from
-`"SMGs"` or `"shotGuns"` (`[selectRandom ["SMGs", "shotGuns"]] call
-_fnc_setPrimary;`) and neither file ever populated `"shotGuns"` at all - see
-the bug below. Now that `"shotGuns"` is a real pool, `sgun_M4_F` moved there
-outright (removed from `"SMGs"`) alongside the two Aegis Police shotguns
-(`sgun_Mp153_classic_F`, `sgun_Mp153_black_F`, also not duplicated into
-`"SMGs"`) - each shotgun lives in exactly one pool. `"SMGs"` itself is still
-not SMG-only even after that cleanup: both files' original lists already had
-a rifle mixed in too (AAF: `Aegis_arifle_M4A1_short_F`; NATO Arid: the same
+**Shotguns live only in `"shotGuns"`, not also in `"SMGs"`.**
+`_policeTemplate` rolls a primary weapon from either `"SMGs"` or `"shotGuns"`
+(`[selectRandom ["SMGs", "shotGuns"]] call _fnc_setPrimary;`). `sgun_M4_F`
+lives in `"shotGuns"` only (not `"SMGs"`), alongside the two Aegis Police
+shotguns (`sgun_Mp153_classic_F`, `sgun_Mp153_black_F`) - each shotgun lives
+in exactly one pool. `"SMGs"` itself is not SMG-only: both files' lists
+include a rifle too (AAF: `Aegis_arifle_M4A1_short_F`; NATO Arid: the same
 classname, three variants), and the appended G36C carbines/DMR sniper rifle
 follow that same precedent - it's really "police primary weapon pool" under
 a misleading name in both files, shotguns aside. Magazine slots use the
@@ -334,14 +318,12 @@ picks/repeats from it), not the `[class, count]` pair `getUnitLoadout` itself
 returns - built from whichever magazine(s) each source loadout actually
 carried.
 
-**Fixed a pre-existing bug along the way: half of all police spawned with no
-primary weapon, just a sidearm.** `_fnc_setPrimary`
-(`fn_loadout_builder.sqf`) reads a missing key as `[]` via `getOrDefault` and
-exits without assigning anything, so before `"shotGuns"` existed, any
-generated loadout that rolled it from that `selectRandom` ended up with an
-empty primary slot. Pre-existing in Aegis's own template in both files, not
-something the Police changes above caused - `_policeTemplate` itself is
-still untouched.
+**Populating `"shotGuns"` matters beyond just adding a weapon pool.**
+`_fnc_setPrimary` (`fn_loadout_builder.sqf`) reads a missing key as `[]` via
+`getOrDefault` and exits without assigning anything - a loadout that rolls an
+empty pool from that `selectRandom` ends up with no primary weapon at all,
+just a sidearm. `_policeTemplate` itself is untouched; only the pool contents
+changed.
 
 No item ended up duplicated between a file's own original entries and the
 appended Aegis Police ones - each file's helmet/uniform/vest/sidearm pools
@@ -349,27 +331,23 @@ happened not to overlap once merged (AAF's `H_Beret_blk_POLICE`/`H_Cap_police`
 were already a subset of the Aegis Police helmet list folded in, so they
 appear once, not twice).
 
-**NATO Arid's own vanilla `"SMGs"` pool had three exact byte-for-byte
-duplicate lines already, independent of anything above** -
-`SMG_04_blk_F`/`SMG_05_F` with no optic, and `Aegis_arifle_M4A1_short_F` with
-`optic_Aco_smg`, each listed twice with identical every field. Unlike the
+**NATO Arid's own `"SMGs"` pool has no duplicate entries.** Unlike the
 intentional weighting elsewhere in this same pool (multiple genuinely
-different optic variants of the same weapon), an exact duplicate contributes
-no new content, just double weight for a variant that was already going to
-be picked - looks like a copy-paste slip in Aegis's own original rather than
-a deliberate choice. Removed the second copy of each; every distinct
-weapon+optic combination Aegis's original had is still present exactly once.
-AAF's own vanilla pool had no equivalent duplicates.
+different optic variants of the same weapon), an exact duplicate would
+contribute no new content, just double weight for a variant already picked -
+every distinct weapon+optic combination is present exactly once
+(`SMG_04_blk_F`/`SMG_05_F` with no optic, `Aegis_arifle_M4A1_short_F` with
+`optic_Aco_smg`, each listed once). AAF's own pool has no equivalent
+duplicates either.
 
 **No distinction between `Standard` and `SquadLeader`** in either file - both
 draw from the one shared `_policeLoadoutData` pool, exactly as each file's
-own original already did. Splitting them into "regular cop" vs.
-"tactical/SWAT" tiers was tried in an earlier pass but abandoned: it needed
-bypassing `_fnc_generateAndSaveUnitsToTemplate` for fixed, hand-picked
-loadouts per role, which didn't match how every other unit type in either
-file works. This version stays consistent with that instead, at the cost of
-the sniper/UGV loadouts being just two more entries in the same random pool
-rather than guaranteed to a specific role.
+own original already did. A "regular cop" vs. "tactical/SWAT" tier split
+would need bypassing `_fnc_generateAndSaveUnitsToTemplate` for fixed,
+hand-picked loadouts per role, which wouldn't match how every other unit
+type in either file works - staying consistent with that means the
+sniper/UGV loadouts are just two more entries in the same random pool rather
+than guaranteed to a specific role.
 
 **Facewear, binoculars, and the UGV-handler's backpack from the source
 loadouts aren't carried over** - neither file's own `_policeLoadoutData` ever
@@ -392,10 +370,9 @@ render them.
 and the "police" unit types are only ever consumed for whichever side is
 Occupants (`fn_getVehiclesGroundTransport.sqf` gates it) - here that's AAF,
 so NATO Arid's copy of this change has no visible effect in this campaign as
-currently configured. Added to NATO Arid anyway, at request, so both files
-stay correct and symmetric if Occupants/Invaders are ever swapped - the
-alternative (AAF only) would silently stop matching if that assignment ever
-changed.
+currently configured. Both files carry the change anyway, so they stay
+correct and symmetric if Occupants/Invaders are ever swapped - an AAF-only
+version would silently stop matching if that assignment ever changed.
 
 ### Titan-to-NLAW swap (both AI templates)
 
@@ -499,10 +476,9 @@ live server does.
 
 **Don't assume a template's name tells you its climate, map, or classname
 prefix - verify against the actual template that loads.** `Aegis_NATO_Arid`
-turned out to be this integration's real Altis Invaders template despite
+is this integration's real Altis Invaders template despite
 `Aegis_NATO_Temperate` sounding like the obvious pick, and Arid's own
-classnames turned out to have no `"B_W_"` prefix at all - both assumptions
-this mod got wrong on the first pass. The `saef_toolbox_au_integration`
+classnames have no `"B_W_"` prefix at all. The `saef_toolbox_au_integration`
 postInit check (see Testing below) reports the real faction name and its live
 roster arrays directly from the server; treat that as ground truth over
 whatever a template's name or a neighbouring template's classnames suggest.
@@ -560,16 +536,14 @@ For the vehicle re-pricing and roster changes, **trust the postInit check, not
 manual inspection**: `saef_toolbox_au_integration\XEH_postInit.sqf` waits for
 `A3A_core` to fully finish, then reads `A3A_vehicleResourceCosts` and both
 `A3A_faction_occ`/`A3A_faction_inv` directly - the same live data the AI
-spawns from - and logs + broadcasts a hint at mission start. Watch
-server.rpt (or the broadcast hint, if locally hosted) for the
-`[SAEF_TBAU] Occupants (...)` / `[SAEF_TBAU] Invaders (...)` lines and
-confirm:
+spawns from - and logs the result at mission start. Watch server.rpt for the
+`SAEF Antistasi | Debug` lines containing `Occupants (...)` / `Invaders (...)`
+and confirm:
 
 - The reported faction **name** is actually `Aegis AAF` / `Aegis NATO Arid` -
   if it instead reads something else (`Aegis NATO Temperate`, in particular),
   a different faction pack was picked at setup and none of this mod's changes
-  apply to that side. This is the check that caught this mod initially
-  targeting the wrong NATO climate - trust it over any name-based assumption.
+  apply to that side. Trust this over any name-based assumption.
 - The `jets` list is empty for both sides - planes are removed entirely, not
   priced, so none should appear in this report at all. In a running mission,
   neither AAF nor NATO Invaders should ever be seen using a fixed-wing

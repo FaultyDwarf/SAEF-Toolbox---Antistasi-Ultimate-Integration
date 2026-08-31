@@ -9,10 +9,8 @@
 
     Unlike A3A_fnc_log, this always writes - there is no LogLevel threshold check. Every
     call site in this addon is already its own gate (each message only exists behind a
-    real condition - a timeout, a missing dependency, a state change), so a second,
-    global filter on top just hid lines during testing with no way to tell whether that
-    was the threshold or the site's own condition not being met yet. _level is kept purely
-    as the label picked for the line, not a filter.
+    real condition - a timeout, a missing dependency, a state change). _level is kept
+    purely as the label picked for the line, not a filter.
 
     A plain function call, not a macro: unlike a #define, a message string passed this
     way is a genuine runtime SQF value, never touched by the preprocessor - it can

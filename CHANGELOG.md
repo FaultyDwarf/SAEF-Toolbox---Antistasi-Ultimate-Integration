@@ -4,7 +4,41 @@ All notable changes to `@SAEF_Toolbox_AU_Integration` are recorded here.
 
 ## Unreleased
 
+### Added
+
+- **Aegis Police vehicles and loadouts for AAF and NATO Arid** -
+  `Templates\Templates\Aegis_AI_AAF.sqf` and `Aegis_AI_NATO_Arid.sqf` (copies). Aegis
+  Police's `Police_I_P_*` vehicles and uniform/vest/helmet/SMG/sidearm classnames are
+  merged directly into each file's existing `vehiclesPolice`/`_policeLoadoutData`
+  declarations, alongside its own vanilla items - not appended as a separate override,
+  since these are already this mod's own copied template files rather than upstream
+  Antistasi originals. `saef_tbau_saef_rebels/config.cpp`'s `requiredAddons` extended
+  with `A3_Police_Soft_F_Police` and `A3_Police_Characters_F_Police`.
+
+- **`SAEF_TBAU_fnc_log`** (`saef_toolbox_au_integration`), a shared logging function
+  replacing every raw `diag_log` call across `saef_toolbox_au_integration/XEH_postInit.sqf`
+  and `saef_tbau_waverespawn/XEH_postInit.sqf`. Matches Antistasi's own `A3A_fnc_log` line
+  shape exactly - `{time} | SAEF Antistasi | {level} | File=... | {message}` - with
+  `SAEF Antistasi` as this mod's own prefix in place of Antistasi's, and the same four
+  level labels (Error/Info/Debug/Verbose) used only to pick that label: every call always
+  writes, since each call site already gates itself on a real condition (a timeout, a
+  missing dependency, a state change). Registered under `CfgFunctions` as a real compiled
+  function rather than a private closure, so it resolves identically at the top of a
+  script, inside a `spawn`, or after a `remoteExec` to a client.
+
 ### Fixed
+
+- **Half of generated police loadouts spawned with only a pistol.** Root cause:
+  `_policeTemplate`'s `[selectRandom ["SMGs", "shotGuns"]]` roll could land on
+  `"shotGuns"`, a pool neither Aegis file populated - `fn_loadout_builder.sqf`'s
+  `_fnc_setPrimary` exits with no primary weapon at all when the resolved pool is `[]`.
+  Fixed by populating `shotGuns` with `sgun_M4_F`, `sgun_Mp153_classic_F`, and
+  `sgun_Mp153_black_F` in both `Aegis_AI_AAF.sqf` and `Aegis_AI_NATO_Arid.sqf`, without
+  touching `_policeTemplate` itself. The shotgun-type entries that had been sitting in
+  `SMGs` instead are removed, and literal duplicate lines inherited from vanilla in NATO
+  Arid's own `SMGs` pool are cleaned up.
+
+
 
 - **Wrong NATO climate targeted: `Aegis_NATO_Temperate` instead of the actual
   Altis Invaders template, `Aegis_NATO_Arid`.** The AAF/NATO balance work
