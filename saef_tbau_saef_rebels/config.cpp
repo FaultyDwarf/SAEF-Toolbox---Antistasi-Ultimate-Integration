@@ -9,8 +9,8 @@
 	instead of the original for these specific templates.
 
 		Aegis_FIA (Rebels)        SAEF name/flag/map-marker branding
-		Aegis_AAF (Occupants)     air fleet re-pricing, Titan-to-NLAW swap
-		Aegis_NATO_Arid (Invaders) air fleet re-pricing, roster swaps, Titan-to-NLAW swap
+		Aegis_AAF (Occupants)     air fleet re-pricing, Titan-to-NLAW swap, Aegis Police vehicles/loadouts
+		Aegis_NATO_Arid (Invaders) air fleet re-pricing, roster swaps, Titan-to-NLAW swap, Aegis Police vehicles/loadouts
 
 	Altis-only scope: Aegis_NATO_Temperate and Aegis_NATO_Tropical are not touched and
 	keep loading Aegis's own, unmodified originals.
@@ -40,7 +40,7 @@ class CfgPatches
 		units[] = {};
 		weapons[] = {};
 		requiredVersion = 0.1;
-		requiredAddons[] = {"A3A_core"};
+		requiredAddons[] = {"A3A_core", "A3_Police_Soft_F_Police", "A3_Police_Characters_F_Police"};
 		author = "SAEF";
 		version = 1;
 	};

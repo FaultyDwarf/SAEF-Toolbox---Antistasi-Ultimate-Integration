@@ -16,6 +16,18 @@ class CfgPatches {
     };
 };
 
+class CfgFunctions {
+    class SAEF_TBAU {
+        class Logging {
+            file = "saef_toolbox_au_integration\Functions";
+            class log {};   // -> SAEF_TBAU_fnc_log, called directly as
+                             // [_level, _message, _file] call SAEF_TBAU_fnc_log;
+                             // matches Antistasi's own A3A_fnc_log: 1=Error, 2=Info,
+                             // 3=Debug, 4=Verbose, gated on the same LogLevel variable.
+        };
+    };
+};
+
 class Extended_PostInit_EventHandlers {
     class saef_toolbox_au_integration {
         init = "call compile preprocessFileLineNumbers '\saef_toolbox_au_integration\XEH_postInit.sqf'";

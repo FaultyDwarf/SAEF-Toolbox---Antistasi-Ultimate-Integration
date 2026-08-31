@@ -7,12 +7,7 @@ private _hasContact = "enoch" in A3A_enabledDLC;
 //   Rebel Information   //
 ///////////////////////////
 
-// name/flagTexture/flagMarkerType put the SAEF patch on the flagpole and map marker;
-// Templates.hpp's own name/flagTexture cover the faction-select preview separately.
-// "flag" (the flagpole model itself) is left as Antistasi's default - only the texture
-// painted on it changes.
 ["name", "SAEF"] call _fnc_saveToTemplate;
-
 ["flag", "Flag_FIA_F"] call _fnc_saveToTemplate;
 ["flagTexture", "saef_tbau_saef_rebels\Pictures\Markers\SAEF_flag_1024x512.paa"] call _fnc_saveToTemplate;
 ["flagMarkerType", "SAEF_flag_marker"] call _fnc_saveToTemplate;

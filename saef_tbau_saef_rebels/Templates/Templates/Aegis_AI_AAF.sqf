@@ -83,6 +83,13 @@ private _policeVehs = if (_hasContact) then {
     ["B_GEN_Offroad_01_gen_F"]
 };
 
+_policeVehs append [
+    "Police_I_P_Offroad_01_police_F",
+    "Police_I_P_Offroad_01_covered_F",
+    "Police_I_P_Offroad_01_comms_F",
+    "Police_I_P_Quadbike_01_F"
+];
+
 ["vehiclesPolice", _policeVehs] call _fnc_saveToTemplate;
 
 ["staticMGs", ["I_HMG_02_high_F"]] call _fnc_saveToTemplate;
@@ -114,21 +121,6 @@ if (_hasWs) then {
 
 #include "Aegis_Vehicle_Attributes.sqf"
 
-/*
-	SAEF Toolbox: re-prices AAF's air fleet (and MBT) via A3A_vehicleResourceCosts. Runs
-	right after the #include above; nothing later in this file sets "attributesVehicles"
-	again, so this is simply the one and only value that key ends up with for this faction
-	(a HashMap `set`, not a merge - whichever call for a given key runs last wins, and there
-	is no other call to contend with here).
-
-	Raising a vehicle's cost doesn't make it any tougher; it makes the AI afford fewer of it
-	per resource pool, and drains the pool faster whenever it does send one, delaying its
-	next QRF/attack. Every air category is priced (attack, transport, fighter/CAS, UAV, even
-	the unarmed scout heli) at roughly 4x-12x the vanilla Antistasi default per category, so
-	a typical QRF/attack resource pool (~100-200 per unit of budget via
-	A3A_balanceVehicleCost) affords at most one such vehicle. Nothing is removed from the
-	roster - ground vehicle pricing is untouched from Aegis's own defaults.
-*/
 ["attributesVehicles", [
 
 	// --- Air: light attack helis (default 130) ---
@@ -572,16 +564,25 @@ _militaryLoadoutData set ["sidearms", [
 //    Police Loadout Data    //
 ///////////////////////////////
 
-private _policeLoadoutData = _loadoutData call _fnc_copyLoadoutData; 
-_policeLoadoutData set ["uniforms", ["U_C_Uniform_Formal_01_blue_F"]];
-_policeLoadoutData set ["vests", ["V_BandollierB_blk"]];
-_policeLoadoutData set ["helmets", ["H_Beret_blk_POLICE"]];
+private _policeLoadoutData = _loadoutData call _fnc_copyLoadoutData;
+_policeLoadoutData set ["uniforms", ["U_C_Uniform_Formal_01_blue_F", "U_Marshal", "Police_U_I_P_PoliceUniform_F", "Police_U_I_P_PoliceUniform_gloves_F"]];
+_policeLoadoutData set ["vests", ["V_BandollierB_blk", "V_TacVest_blk_POLICE", "V_CarrierRigKBT_01_light_POLICE_F"]];
+_policeLoadoutData set ["helmets", ["H_Beret_blk_POLICE", "H_Cap_police", "H_Cap_headphones_blk", "H_HelmetSpecter_black_headset_F"]];
 _policeLoadoutData set ["SMGs", [
-["sgun_M4_F", "", "acc_flashlight_pistol", "", ["8Rnd_12Gauge_Pellets", "8Rnd_12Gauge_Pellets", "8Rnd_12Gauge_Slug"], [], ""],
 ["SMG_03_TR_black", "", "acc_flashlight", "", [], [], ""],
 ["SMG_03C_TR_black", "", "acc_flashlight", "", [], [], ""],
 ["SMG_04_blk_F", "", "", "", ["20Rnd_460x30_Mag_F", "20Rnd_460x30_Mag_F"], [], ""],
-["Aegis_arifle_M4A1_short_F", "", "", "", ["30Rnd_556x45_Stanag_red", "30Rnd_556x45_Stanag_red", "30Rnd_556x45_Stanag_Tracer_Red"], [], ""]
+["Aegis_arifle_M4A1_short_F", "", "", "", ["30Rnd_556x45_Stanag_red", "30Rnd_556x45_Stanag_red", "30Rnd_556x45_Stanag_Tracer_Red"], [], ""],
+["arifle_G36C_F", "", "", "", ["30Rnd_65x39_caseless_msbs_mag"], [], ""],
+["arifle_G36C_Holo_FL_F", "", "acc_flashlight", "optic_Holosight_blk_F", ["30Rnd_65x39_caseless_msbs_mag"], [], ""],
+["SMG_03C_black", "", "", "", ["50Rnd_570x28_SMG_03"], [], ""],
+["srifle_DMR_06_black_AMS_BI_F", "", "", "optic_AMS", ["20Rnd_762x51_Mag"], [], "bipod_03_F_blk"]
+]];
+
+_policeLoadoutData set ["shotGuns", [
+["sgun_M4_F", "", "acc_flashlight_pistol", "", ["8Rnd_12Gauge_Pellets", "8Rnd_12Gauge_Pellets", "8Rnd_12Gauge_Slug"], [], ""],
+["sgun_Mp153_classic_F", "", "", "", ["4Rnd_12Gauge_Pellets", "4Rnd_12Gauge_Slug"], [], ""],
+["sgun_Mp153_black_F", "", "", "", ["4Rnd_12Gauge_Pellets", "4Rnd_12Gauge_Slug"], [], ""]
 ]];
 _policeLoadoutData set ["sidearms", ["hgun_G17_black_F", "hgun_ACPC2_black_F"]];
 

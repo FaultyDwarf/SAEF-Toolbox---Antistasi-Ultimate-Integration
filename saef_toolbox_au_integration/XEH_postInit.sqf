@@ -21,6 +21,18 @@
 
     StatTrack's own logging needs nothing from here - RS_ST_fnc_InitStatTrack is
     postInit = 1 and server-guarded, so it self-starts. Only the on-demand action is added.
+
+    Every log line in this file goes through SAEF_TBAU_fnc_log instead of a raw diag_log
+    call - [_level, _message, _file] call SAEF_TBAU_fnc_log;, matching Antistasi's own
+    A3A_fnc_log's line shape: "{time} | {prefix} | {level} | File=... | {message}", just
+    with "SAEF Antistasi" as the prefix in place of Antistasi's own "Antistasi", and
+    levels 1=Error, 2=Info, 3=Debug, 4=Verbose as pure labels - every call here always
+    writes, unfiltered by LogLevel, since each site is already its own gate (a timeout, a
+    missing dependency, a state change). A tool that colourises Antistasi's own logging by
+    that shape colourises these identically with no changes on its end. Backed by a real
+    CfgFunctions-compiled function, not a private closure, so it works identically at the
+    top of a script, inside a spawn, or after a remoteExec to a client - this addon is
+    assumed present everywhere (server and every client), same as the rest of this mod.
 */
 
 if (!isServer) exitWith {};
@@ -38,7 +50,7 @@ if (!isServer) exitWith {};
     };
 
     if (isNil "RS_ST_fnc_LogInfo" || {isNil "ST_AllowLogging"}) exitWith {
-        diag_log "[SAEF_TBAU] StatTrack did not initialise within 300s (RS_ST_fnc_LogInfo / ST_AllowLogging missing). Is mods\@SAEFToolbox still on the server -mod= line? Admin action not registered.";
+        [1, "StatTrack did not initialise within 300s (RS_ST_fnc_LogInfo / ST_AllowLogging missing). Is mods\@SAEFToolbox still on the server -mod= line? Admin action not registered.", "saef_toolbox_au_integration\XEH_postInit.sqf"] call SAEF_TBAU_fnc_log;
     };
 
     // Target 0 rather than -2, so a locally hosted session's host player - who is also
@@ -64,7 +76,7 @@ if (!isServer) exitWith {};
 
         if (isNull player || {isNil "RS_fnc_Admin_AddMissionAction"}) exitWith {
             missionNamespace setVariable ["SAEF_TBAU_ActionRegistered", false];
-            diag_log "[SAEF_TBAU] RS_fnc_Admin_AddMissionAction / ACE interact menu unavailable after 300s, skipping StatTrack admin action. Is @SAEFToolbox in the client preset?";
+            [1, "RS_fnc_Admin_AddMissionAction / ACE interact menu unavailable after 300s, skipping StatTrack admin action. Is @SAEFToolbox in the client preset?", "saef_toolbox_au_integration\XEH_postInit.sqf"] call SAEF_TBAU_fnc_log;
         };
 
         // ACE silently drops an action whose parent path does not exist yet, and the
@@ -109,28 +121,18 @@ if (!isServer) exitWith {};
             ["SAEF_TBAU_Invincible_Off", "Become Vulnerable", false]
         ];
 
-        diag_log "[SAEF_TBAU] registered 'Log StatTrack', 'Become Invincible' and 'Become Vulnerable' under Tools > Admin Utilities > Mission Utilities";
+        [3, "registered 'Log StatTrack', 'Become Invincible' and 'Become Vulnerable' under Tools > Admin Utilities > Mission Utilities", "saef_toolbox_au_integration\XEH_postInit.sqf"] call SAEF_TBAU_fnc_log;
     };
 
     [[], _clientInit] remoteExec ["spawn", 0, "SAEF_TBAU_AdminActions"];
 
-    diag_log "[SAEF_TBAU] broadcast admin action registration to clients (JIP-armed as SAEF_TBAU_AdminActions)";
+    [3, "broadcast admin action registration to clients (JIP-armed as SAEF_TBAU_AdminActions)", "saef_toolbox_au_integration\XEH_postInit.sqf"] call SAEF_TBAU_fnc_log;
 };
 
 [] spawn {
-    /*
-        Reports each side's live jet prices (A3A_vehicleResourceCosts) and air roster
-        arrays (vehiclesPlanesTransport/vehiclesHelisAttack/vehiclesHelisTransport) via
-        diag_log and a broadcast hint, read directly from A3A_faction_occ/A3A_faction_inv
-        once A3A_core has fully started.
-
-        Waits on A3A_startupState == "completed" rather than polling
-        A3A_vehicleResourceCosts/A3A_faction_occ/A3A_faction_inv directly:
-        A3A_fnc_initVarServer (which sets all three) runs behind fn_initServer.sqf's
-        admin setup-dialog gate ("waitUntil {!isNil "A3A_saveData"}"), which can take a
-        long time - the same reason saef_tbau_waverespawn's own postInit waits 1800s on
-        the same flag.
-    */
+    // This whole block exists to wait, compute, and log a diagnostic report - it has no
+    // other side effect. SAEF_TBAU_fnc_log always writes, so the report always runs too;
+    // nothing here is gated on LogLevel any more.
     private _deadline = diag_tickTime + 1800;
 
     waitUntil {
@@ -140,46 +142,38 @@ if (!isServer) exitWith {};
     };
 
     if ((missionNamespace getVariable ["A3A_startupState", ""]) isNotEqualTo "completed") exitWith {
-        diag_log "[SAEF_TBAU] Vehicle override check skipped: A3A_startupState did not reach 'completed' within 1800s.";
+        [3, "Vehicle override check skipped: A3A_startupState did not reach 'completed' within 1800s.", "saef_toolbox_au_integration\XEH_postInit.sqf"] call SAEF_TBAU_fnc_log;
     };
 
     if (isNil "A3A_vehicleResourceCosts" || {isNil "A3A_faction_occ"} || {isNil "A3A_faction_inv"}) exitWith {
-        diag_log "[SAEF_TBAU] Vehicle override check skipped: A3A_startupState reached 'completed' but A3A_vehicleResourceCosts / A3A_faction_occ / A3A_faction_inv is still undefined - has A3A_core renamed one of these?";
+        [3, "Vehicle override check skipped: A3A_startupState reached 'completed' but A3A_vehicleResourceCosts / A3A_faction_occ / A3A_faction_inv is still undefined - has A3A_core renamed one of these?", "saef_toolbox_au_integration\XEH_postInit.sqf"] call SAEF_TBAU_fnc_log;
     };
 
     private _fnc_reportSide = {
         params ["_label", "_faction"];
 
         private _name = _faction getOrDefault ["name", "?"];
-
-        // Jets: whatever this faction's own roster actually lists, priced against the
-        // live global table - not a hardcoded classname, so this works no matter which
-        // faction pack ended up loaded for this side.
         private _jets = (_faction getOrDefault ["vehiclesPlanesCAS", []]) + (_faction getOrDefault ["vehiclesPlanesAA", []]);
         private _jetReport = _jets apply { format ["%1=%2", _x, A3A_vehicleResourceCosts getOrDefault [_x, "unpriced"]] };
 
-        // Rosters: the exact arrays fn_createAttackForceAir.sqf/fn_createAttackForceLand.sqf
-        // pick from when spawning vehicles for this faction.
         private _transportPlanes = _faction getOrDefault ["vehiclesPlanesTransport", []];
         private _helisAttack = _faction getOrDefault ["vehiclesHelisAttack", []];
         private _helisTransport = _faction getOrDefault ["vehiclesHelisTransport", []];
+       private _police = _faction getOrDefault ["vehiclesPolice", []];
 
-        diag_log format [
-            "[SAEF_TBAU] %1 (%2) - jets [class=cost]: %3 | vehiclesPlanesTransport: %4 | vehiclesHelisAttack: %5 | vehiclesHelisTransport: %6",
-            _label, _name, _jetReport, _transportPlanes, _helisAttack, _helisTransport
-        ];
+        [3, format [
+            "%1 (%2) - jets [class=cost]: %3 | vehiclesPlanesTransport: %4 | vehiclesHelisAttack: %5 | vehiclesHelisTransport: %6 | vehiclesPolice: %7",
+            _label, _name, _jetReport, _transportPlanes, _helisAttack, _helisTransport, _police
+        ], "saef_toolbox_au_integration\XEH_postInit.sqf"] call SAEF_TBAU_fnc_log;
 
         format [
-            "%1 (%2)\njets: %3\nplanesTransport: %4\nhelisAttack: %5\nhelisTransport: %6",
+            "%1 (%2)\njets: %3\nplanesTransport: %4\nhelisAttack: %5\nhelisTransport: %6\npolice: %7",
             _label, _name, (_jetReport joinString ", "), (_transportPlanes joinString ", "),
-            (_helisAttack joinString ", "), (_helisTransport joinString ", ")
+            (_helisAttack joinString ", "), (_helisTransport joinString ", "), (_police joinString ", ")
         ]
     };
 
     private _occReport = ["Occupants", missionNamespace getVariable ["A3A_faction_occ", createHashMap]] call _fnc_reportSide;
     private _invReport = ["Invaders", missionNamespace getVariable ["A3A_faction_inv", createHashMap]] call _fnc_reportSide;
-
-    [format ["[SAEF_TBAU] vehicle override check\n\n%1\n\n%2", _occReport, _invReport]] remoteExec ["hint", 0];
-
-    diag_log "[SAEF_TBAU] vehicle override check complete - see lines above for the live jet prices and air rosters actually in effect.";
+    [3, "vehicle override check complete - see lines above for the live jet prices and air rosters actually in effect.", "saef_toolbox_au_integration\XEH_postInit.sqf"] call SAEF_TBAU_fnc_log;
 };

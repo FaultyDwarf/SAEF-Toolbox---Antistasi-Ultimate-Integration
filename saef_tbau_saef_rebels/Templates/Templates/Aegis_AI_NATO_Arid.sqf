@@ -91,6 +91,13 @@ private _policeVehs = if (_hasContact) then {
     ["B_GEN_Offroad_01_gen_F"]
 };
 
+_policeVehs append [
+    "Police_I_P_Offroad_01_police_F",
+    "Police_I_P_Offroad_01_covered_F",
+    "Police_I_P_Offroad_01_comms_F",
+    "Police_I_P_Quadbike_01_F"
+];
+
 ["vehiclesPolice", _policeVehs] call _fnc_saveToTemplate;
 
 ["staticMGs", ["B_HMG_02_high_F", "B_HMG_01_high_F"]] call _fnc_saveToTemplate;
@@ -853,28 +860,33 @@ _militaryLoadoutData set ["marksmanRifles", _marksmanRifles];
 ///////////////////////////////
 //    Police Loadout Data    //
 ///////////////////////////////
-private _policeLoadoutData = _loadoutData call _fnc_copyLoadoutData; 
-_policeLoadoutData set ["uniforms", ["U_B_GEN_Soldier_F", "U_B_GEN_Commander_F"]];
-_policeLoadoutData set ["vests", ["V_TacVest_gen_F"]];
-private _helmets = ["H_MilCap_gen_F", "H_Beret_gen_F"];
+private _policeLoadoutData = _loadoutData call _fnc_copyLoadoutData;
+_policeLoadoutData set ["uniforms", ["U_B_GEN_Soldier_F", "U_B_GEN_Commander_F", "U_Marshal", "Police_U_I_P_PoliceUniform_F", "Police_U_I_P_PoliceUniform_gloves_F"]];
+_policeLoadoutData set ["vests", ["V_TacVest_gen_F", "V_TacVest_blk_POLICE", "V_CarrierRigKBT_01_light_POLICE_F"]];
+private _helmets = ["H_MilCap_gen_F", "H_Beret_gen_F", "H_Beret_blk_POLICE", "H_Cap_police", "H_Cap_headphones_blk", "H_HelmetSpecter_black_headset_F"];
 if (_hasLawsOfWar) then {
     _helmets pushBack "H_PASGT_basic_blue_F";
 };
 _policeLoadoutData set ["helmets", _helmets];
 _policeLoadoutData set ["SMGs", [
-["sgun_M4_F", "", "acc_flashlight_pistol", "", ["8Rnd_12Gauge_Pellets", "8Rnd_12Gauge_Pellets", "8Rnd_12Gauge_Slug"], [], ""],
-["sgun_M4_F", "", "acc_flashlight_pistol", "", ["8Rnd_12Gauge_Pellets", "8Rnd_12Gauge_Pellets", "8Rnd_12Gauge_Slug"], [], ""],
-["SMG_04_blk_F", "", "", "", ["20Rnd_460x30_Mag_F"], [], ""],
 ["SMG_04_blk_F", "", "", "", ["20Rnd_460x30_Mag_F"], [], ""],
 ["SMG_04_blk_F", "", "", "optic_Aco_smg", ["20Rnd_460x30_Mag_F"], [], ""],
 ["SMG_04_blk_F", "", "", "optic_Holosight_blk_F", ["20Rnd_460x30_Mag_F"], [], ""],
 ["SMG_05_F", "", "acc_flashlight", "", ["30Rnd_9x21_Mag_SMG_02", "30Rnd_9x21_Mag_SMG_02", "30Rnd_9x21_Mag_SMG_02_Tracer_Yellow"], [], ""],
-["SMG_05_F", "", "acc_flashlight", "", ["30Rnd_9x21_Mag_SMG_02", "30Rnd_9x21_Mag_SMG_02", "30Rnd_9x21_Mag_SMG_02_Tracer_Yellow"], [], ""],
 ["SMG_05_F", "", "acc_flashlight", "optic_Aco_smg", ["30Rnd_9x21_Mag_SMG_02", "30Rnd_9x21_Mag_SMG_02", "30Rnd_9x21_Mag_SMG_02_Tracer_Yellow"], [], ""],
 ["SMG_05_F", "", "acc_flashlight", "optic_Holosight_blk_F", ["30Rnd_9x21_Mag_SMG_02", "30Rnd_9x21_Mag_SMG_02", "30Rnd_9x21_Mag_SMG_02_Tracer_Yellow"], [], ""],
 ["Aegis_arifle_M4A1_short_F", "", "", "optic_Aco_smg", ["30Rnd_556x45_Stanag_red", "30Rnd_556x45_Stanag_red", "30Rnd_556x45_Stanag_Tracer_Red"], [], ""],
-["Aegis_arifle_M4A1_short_F", "", "", "optic_Aco_smg", ["30Rnd_556x45_Stanag_red", "30Rnd_556x45_Stanag_red", "30Rnd_556x45_Stanag_Tracer_Red"], [], ""],
-["Aegis_arifle_M4A1_short_F", "", "", "optic_Holosight_blk_F", ["30Rnd_556x45_Stanag_red", "30Rnd_556x45_Stanag_red", "30Rnd_556x45_Stanag_Tracer_Red"], [], ""]
+["Aegis_arifle_M4A1_short_F", "", "", "optic_Holosight_blk_F", ["30Rnd_556x45_Stanag_red", "30Rnd_556x45_Stanag_red", "30Rnd_556x45_Stanag_Tracer_Red"], [], ""],
+["arifle_G36C_F", "", "", "", ["30Rnd_65x39_caseless_msbs_mag"], [], ""],
+["arifle_G36C_Holo_FL_F", "", "acc_flashlight", "optic_Holosight_blk_F", ["30Rnd_65x39_caseless_msbs_mag"], [], ""],
+["SMG_03C_black", "", "", "", ["50Rnd_570x28_SMG_03"], [], ""],
+["srifle_DMR_06_black_AMS_BI_F", "", "", "optic_AMS", ["20Rnd_762x51_Mag"], [], "bipod_03_F_blk"]
+]];
+
+_policeLoadoutData set ["shotGuns", [
+["sgun_M4_F", "", "acc_flashlight_pistol", "", ["8Rnd_12Gauge_Pellets", "8Rnd_12Gauge_Pellets", "8Rnd_12Gauge_Slug"], [], ""],
+["sgun_Mp153_classic_F", "", "", "", ["4Rnd_12Gauge_Pellets", "4Rnd_12Gauge_Slug"], [], ""],
+["sgun_Mp153_black_F", "", "", "", ["4Rnd_12Gauge_Pellets", "4Rnd_12Gauge_Slug"], [], ""]
 ]];
 _policeLoadoutData set ["sidearms", ["hgun_G17_black_F", "hgun_P07_blk_F"]];
 

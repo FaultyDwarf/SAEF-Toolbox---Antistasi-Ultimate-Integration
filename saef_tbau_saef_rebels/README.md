@@ -21,8 +21,8 @@ up loading our file instead of Aegis's for these three templates.
 | Template | What's changed | Copy |
 |---|---|---|
 | `Aegis_FIA` (Rebels) | SAEF name/flag/map-marker branding | `Aegis_Reb_FIA.sqf` |
-| `Aegis_AAF` (Occupants) | display name ("SAEF AAF"), air fleet re-pricing, Titan-to-NLAW | `Aegis_AI_AAF.sqf` |
-| `Aegis_NATO_Arid` (Invaders) | display name ("SAEF NATO"), air fleet re-pricing, roster swaps, Titan-to-NLAW | `Aegis_AI_NATO_Arid.sqf` |
+| `Aegis_AAF` (Occupants) | display name ("SAEF AAF"), air fleet re-pricing, Titan-to-NLAW, Aegis Police vehicles/loadouts | `Aegis_AI_AAF.sqf` |
+| `Aegis_NATO_Arid` (Invaders) | display name ("SAEF NATO"), air fleet re-pricing, roster swaps, Titan-to-NLAW, Aegis Police vehicles/loadouts | `Aegis_AI_NATO_Arid.sqf` |
 
 **`Aegis_NATO_Arid`, not `Aegis_NATO_Temperate` - despite the name.** This
 integration's actual Invaders template on Altis is `Aegis_NATO_Arid`,
@@ -268,6 +268,135 @@ each faction's `A3A_fnc_loadFaction` call gets its own separate, independent
 data store. There is no shared script for a roster change made in one
 faction's file to leak into another's.
 
+### AAF and NATO Arid: Aegis Police vehicles and loadouts
+
+Both `Aegis_AI_AAF.sqf` and `Aegis_AI_NATO_Arid.sqf` add content from the
+separate **`@AegisPolice`** mod onto their existing `vehiclesPolice` roster
+and their `_policeLoadoutData` pools (consumed by the two generated "police"
+unit types, `police_Standard`/`police_SquadLeader`) - Antistasi's own
+vanilla-Contact-DLC offroad and gear stay in play too, alongside Aegis
+Police's, rather than being replaced. An earlier pass did this as a full
+replacement; both files now add to the existing content instead.
+
+The vehicle roster (`_policeVehs append [...]`, below) still literally
+appends after the vanilla `_hasContact` block resolves, since that block is
+conditional logic worth keeping separate. The loadout pools don't use that
+pattern: each is edited directly (see "Loadouts" below) rather than appended
+after an untouched original, since these two files are already our own
+copies with no upstream original to preserve a diff against.
+
+**Vehicles:** `vehiclesPolice` gets `Police_I_P_Offroad_01_police_F`,
+`Police_I_P_Offroad_01_covered_F`, `Police_I_P_Offroad_01_comms_F`, and
+`Police_I_P_Quadbike_01_F` appended onto whichever `B_GEN_Offroad_01_*` list
+that file's own `_hasContact` check already resolved to - all four confirmed
+real, spawnable classes by derapping `@AegisPolice`'s `soft_f_police.pbo`
+with Arma 3 Tools' BankRev + CfgConvert, the same verification method used
+for the Apache/Little Bird in the NATO Arid roster section above. No DLC gate
+needed for the appended ones - unlike the vanilla Contact offroad already
+there, Aegis Police's vehicles don't depend on Contact at all. The police
+boat (`Police_I_P_Boat_Civil_01_police_F`) is deliberately **not** included:
+`vehiclesPolice` only ever feeds `fn_getVehiclesGroundTransport.sqf`'s
+land-vehicle pool, which never rolls a water vehicle, and Antistasi has no
+separate "police boat" category to put it in instead.
+
+**Loadouts:** each file's `_policeLoadoutData` block is edited directly -
+`uniforms`/`vests`/`helmets`/`"SMGs"`/`sidearms` each get one `set` call with
+Aegis Police items folded straight into that array, not a separate append
+step after an untouched original. Unlike the flag/vehicle-cost overrides in
+the sibling `saef_tbau_saef_rebels` files (which patch *upstream* Aegis
+scripts they don't own), `Aegis_AI_AAF.sqf`/`Aegis_AI_NATO_Arid.sqf` are
+already our own copies - there's no upstream original here to preserve a
+diff against, so editing the pools in place is simpler and reads the same as
+every other loadout block in each file. Consumed by the unmodified
+`_policeTemplate` + `_fnc_generateAndSaveUnitsToTemplate` below it, same as
+every other unit type in each file. Source gear pulled from
+`Police_I_P_PoliceOfficer_F`/`_Rifle_F`/`_SG_F` and
+`Police_I_P_TacPoliceOfficer_F`/`_SG_F`/`_Sniper_F`/`_UGV_02_F`
+(`getUnitLoadout` dumps, classnames confirmed real against
+`characters_f_police.pbo`, same method used for the vehicles above).
+
+**Shotguns live only in `"shotGuns"`, not also in `"SMGs"`.** Both files'
+vanilla `"SMGs"` pools originally mixed a shotgun (`sgun_M4_F`) in with real
+SMGs/rifles, because `_policeTemplate` only ever rolls a primary from
+`"SMGs"` or `"shotGuns"` (`[selectRandom ["SMGs", "shotGuns"]] call
+_fnc_setPrimary;`) and neither file ever populated `"shotGuns"` at all - see
+the bug below. Now that `"shotGuns"` is a real pool, `sgun_M4_F` moved there
+outright (removed from `"SMGs"`) alongside the two Aegis Police shotguns
+(`sgun_Mp153_classic_F`, `sgun_Mp153_black_F`, also not duplicated into
+`"SMGs"`) - each shotgun lives in exactly one pool. `"SMGs"` itself is still
+not SMG-only even after that cleanup: both files' original lists already had
+a rifle mixed in too (AAF: `Aegis_arifle_M4A1_short_F`; NATO Arid: the same
+classname, three variants), and the appended G36C carbines/DMR sniper rifle
+follow that same precedent - it's really "police primary weapon pool" under
+a misleading name in both files, shotguns aside. Magazine slots use the
+candidate-list format this pool shape expects (`_fnc_addMagazines`
+picks/repeats from it), not the `[class, count]` pair `getUnitLoadout` itself
+returns - built from whichever magazine(s) each source loadout actually
+carried.
+
+**Fixed a pre-existing bug along the way: half of all police spawned with no
+primary weapon, just a sidearm.** `_fnc_setPrimary`
+(`fn_loadout_builder.sqf`) reads a missing key as `[]` via `getOrDefault` and
+exits without assigning anything, so before `"shotGuns"` existed, any
+generated loadout that rolled it from that `selectRandom` ended up with an
+empty primary slot. Pre-existing in Aegis's own template in both files, not
+something the Police changes above caused - `_policeTemplate` itself is
+still untouched.
+
+No item ended up duplicated between a file's own original entries and the
+appended Aegis Police ones - each file's helmet/uniform/vest/sidearm pools
+happened not to overlap once merged (AAF's `H_Beret_blk_POLICE`/`H_Cap_police`
+were already a subset of the Aegis Police helmet list folded in, so they
+appear once, not twice).
+
+**NATO Arid's own vanilla `"SMGs"` pool had three exact byte-for-byte
+duplicate lines already, independent of anything above** -
+`SMG_04_blk_F`/`SMG_05_F` with no optic, and `Aegis_arifle_M4A1_short_F` with
+`optic_Aco_smg`, each listed twice with identical every field. Unlike the
+intentional weighting elsewhere in this same pool (multiple genuinely
+different optic variants of the same weapon), an exact duplicate contributes
+no new content, just double weight for a variant that was already going to
+be picked - looks like a copy-paste slip in Aegis's own original rather than
+a deliberate choice. Removed the second copy of each; every distinct
+weapon+optic combination Aegis's original had is still present exactly once.
+AAF's own vanilla pool had no equivalent duplicates.
+
+**No distinction between `Standard` and `SquadLeader`** in either file - both
+draw from the one shared `_policeLoadoutData` pool, exactly as each file's
+own original already did. Splitting them into "regular cop" vs.
+"tactical/SWAT" tiers was tried in an earlier pass but abandoned: it needed
+bypassing `_fnc_generateAndSaveUnitsToTemplate` for fixed, hand-picked
+loadouts per role, which didn't match how every other unit type in either
+file works. This version stays consistent with that instead, at the cost of
+the sniper/UGV loadouts being just two more entries in the same random pool
+rather than guaranteed to a specific role.
+
+**Facewear, binoculars, and the UGV-handler's backpack from the source
+loadouts aren't carried over** - neither file's own `_policeLoadoutData` ever
+set `goggles`/`binoculars`/`backpacks` for police either (they inherit the
+base `_loadoutData` defaults, or nothing, for those), so matching each file's
+exact five-key shape (`uniforms`/`vests`/`helmets`/`SMGs`/`sidearms`) means
+those details from the Aegis Police dumps are left out rather than bolted
+onto a shape neither template used for this unit type.
+
+**New dependency:** `@AegisPolice` is not the same mod as `@Aegis` - its
+vehicles and characters live in their own PBOs (`A3_Police_Soft_F_Police`,
+`A3_Police_Characters_F_Police`), both now declared in `config.cpp`'s
+`requiredAddons` alongside `A3A_core`. Unlike the flag textures/CfgMarkers
+class (client-rendering only), this dependency is needed on **both** server
+and client: the server resolves these classnames into real vehicle/unit
+configs when a patrol spawns, and the client needs the actual models to
+render them.
+
+**Scope and why NATO Arid gets this too despite being inert:** `vehiclesPolice`
+and the "police" unit types are only ever consumed for whichever side is
+Occupants (`fn_getVehiclesGroundTransport.sqf` gates it) - here that's AAF,
+so NATO Arid's copy of this change has no visible effect in this campaign as
+currently configured. Added to NATO Arid anyway, at request, so both files
+stay correct and symmetric if Occupants/Invaders are ever swapped - the
+alternative (AAF only) would silently stop matching if that assignment ever
+changed.
+
 ### Titan-to-NLAW swap (both AI templates)
 
 `SAEF_TitanToNLAW_Swap.sqf` is `#include`d as the last line of both
@@ -318,8 +447,8 @@ saef_tbau_saef_rebels/
 │   └── Templates/
 │       ├── Aegis_Reb_FIA.sqf                     copy + SAEF flag/marker
 │       ├── Aegis_Reb_Vehicle_Attributes.sqf      copy, #included unmodified by Aegis_Reb_FIA.sqf
-│       ├── Aegis_AI_AAF.sqf                      copy + vehicle pricing + Titan swap
-│       ├── Aegis_AI_NATO_Arid.sqf                copy + vehicle pricing + roster swaps + Titan swap
+│       ├── Aegis_AI_AAF.sqf                      copy + vehicle pricing + Titan swap + Aegis Police
+│       ├── Aegis_AI_NATO_Arid.sqf                copy + vehicle pricing + roster swaps + Titan swap + Aegis Police
 │       ├── Aegis_Vehicle_Attributes.sqf          copy, #included unmodified by AAF/NATO Arid
 │       └── SAEF_TitanToNLAW_Swap.sqf             shared #include, both Aegis_AI_*.sqf
 └── Pictures/
@@ -382,6 +511,11 @@ whatever a template's name or a neighbouring template's classnames suggest.
 
 - `A3A_core` (Antistasi Ultimate itself) - declared in `requiredAddons`. If
   this isn't present/loaded, Arma refuses to load this addon entirely.
+- `@AegisPolice` (`A3_Police_Soft_F_Police` and `A3_Police_Characters_F_Police`,
+  both also declared in `requiredAddons`) - needed on **both** server and
+  client, unlike the rest of this PBO's dependencies: the server resolves
+  AAF's/NATO Arid's police classnames into real configs, and the client needs
+  the actual vehicle/character models to render them.
 - Both `.paa` files under `Pictures\Markers\` (already present and compiled).
 
 **This PBO has to be on the clients.** Unlike its siblings in this mod folder
@@ -444,6 +578,13 @@ confirm:
 - `vehiclesHelisAttack`/`vehiclesHelisTransport` for Occupants (AAF) list
   AAF's own classnames, never NATO's Apache/Chinook/Ghost Hawk/Little Bird -
   in a running mission, AAF garrisons should never be seen flying a Chinook.
+- `vehiclesPolice` for both sides includes each faction's own vanilla
+  `B_GEN_Offroad_01_*` entries **and** the four `Police_I_P_*` classes - if
+  the Aegis Police ones are missing, the append didn't take; if the vanilla
+  ones are missing instead, something reverted to a full replace rather than
+  an append. In a running mission, only AAF's patrol vehicles are actually
+  visible either way (NATO Arid is Invaders here, so its copy of this list is
+  currently inert - see the Police section above).
 
 In a running mission the practical signal for pricing is indirect -
 fewer/rarer heavy air and MBT spawns per QRF/attack wave over a play session -

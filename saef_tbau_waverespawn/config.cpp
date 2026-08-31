@@ -9,8 +9,6 @@
     Kept in its own PBO because `class ExtenderParams;` is an external reference into
     A3A_core: this config cannot resolve without Antistasi loaded, while its sibling
     saef_toolbox_au_integration has no such dependency and must keep working alone.
-
-    cba_xeh is required for the Extended_PostInit_EventHandlers block at the bottom.
 */
 
 class CfgPatches

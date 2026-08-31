@@ -29,6 +29,16 @@
     a wave is closed so they join the next one, and under Antistasi that death costs
     them money, score, a city support point and an HR. That code is client-side in
     @SAEFToolbox and is left alone.
+
+    Every diag_log in this file goes through SAEF_TBAU_fnc_log (declared in the sibling
+    saef_toolbox_au_integration addon, requiredAddons below) rather than a raw diag_log
+    call - [_level, _message, _file] call SAEF_TBAU_fnc_log;, matching Antistasi's own
+    A3A_fnc_log's line shape: "{time} | SAEF Antistasi | {level} | File=... | {message}",
+    with levels 1=Error, 2=Info, 3=Debug, 4=Verbose as pure labels - every call here
+    always writes, unfiltered by LogLevel. A real CfgFunctions-compiled function, not a
+    private closure - `spawn` does not inherit private variables from whatever called it,
+    so a closure declared once at the top of this file would be invisible to the
+    [] spawn {} block further down.
 */
 
 if (!isServer) exitWith {};
@@ -60,7 +70,7 @@ SAEF_TBAU_fnc_startWave = {
     // RS_fnc_Handler_WaveRespawn exits on that before it ever disables respawn - which
     // is indistinguishable from the handler silently not running.
     if (_minTime > _maxTime) then {
-        diag_log format ["[SAEF_TBAU] minimum wave time (%1s) exceeds maximum (%2s); clamping maximum up to %1s.", _minTime, _maxTime];
+        [2, format ["minimum wave time (%1s) exceeds maximum (%2s); clamping maximum up to %1s.", _minTime, _maxTime], "saef_tbau_waverespawn\XEH_postInit.sqf"] call SAEF_TBAU_fnc_log;
         _maxTime = _minTime;
     };
 
@@ -69,10 +79,10 @@ SAEF_TBAU_fnc_startWave = {
     // rebel slots do not map cleanly onto roles.
     [_minTime, _maxTime, _holdTime, _threshold, _penalty, []] spawn RS_fnc_Handler_WaveRespawn;
 
-    diag_log format [
-        "[SAEF_TBAU] wave respawn running: min=%1s max=%2s hold=%3s threshold=%4 penalty=%5s",
+    [3, format [
+        "wave respawn running: min=%1s max=%2s hold=%3s threshold=%4 penalty=%5s",
         _minTime, _maxTime, _holdTime, _threshold, _penalty
-    ];
+    ], "saef_tbau_waverespawn\XEH_postInit.sqf"] call SAEF_TBAU_fnc_log;
 };
 
 /*
@@ -115,17 +125,17 @@ SAEF_TBAU_fnc_stopWave = {
     };
 
     if ((missionNamespace getVariable ["A3A_startupState", ""]) isNotEqualTo "completed") exitWith {
-        diag_log "[SAEF_TBAU] Antistasi startup did not reach 'completed' within 1800s, wave respawn not started. Has A3A_startupState been renamed?";
+        [1, "Antistasi startup did not reach 'completed' within 1800s, wave respawn not started. Has A3A_startupState been renamed?", "saef_tbau_waverespawn\XEH_postInit.sqf"] call SAEF_TBAU_fnc_log;
     };
 
     // isNil rather than a falsy test, so "the config never loaded" logs differently from
     // "the feature is switched off in the setup screen".
     if (isNil "SAEF_Wave_Enabled") exitWith {
-        diag_log "[SAEF_TBAU] SAEF_Wave_Enabled undefined after Antistasi startup - the params half of this addon did not load. Wave respawn not started.";
+        [1, "SAEF_Wave_Enabled undefined after Antistasi startup - the params half of this addon did not load. Wave respawn not started.", "saef_tbau_waverespawn\XEH_postInit.sqf"] call SAEF_TBAU_fnc_log;
     };
 
     if (isNil "RS_fnc_Handler_WaveRespawn") exitWith {
-        diag_log "[SAEF_TBAU] RS_fnc_Handler_WaveRespawn undefined. Is mods\@SAEFToolbox still on the server -mod= line? Wave respawn not started.";
+        [1, "RS_fnc_Handler_WaveRespawn undefined. Is mods\@SAEFToolbox still on the server -mod= line? Wave respawn not started.", "saef_tbau_waverespawn\XEH_postInit.sqf"] call SAEF_TBAU_fnc_log;
     };
 
     private _applied = call SAEF_TBAU_fnc_waveParams;
@@ -134,7 +144,7 @@ SAEF_TBAU_fnc_stopWave = {
     if (_running) then {
         _applied call SAEF_TBAU_fnc_startWave;
     } else {
-        diag_log "[SAEF_TBAU] wave respawn disabled in the setup screen (Extender Options). Antistasi's own respawn is unchanged. Watching for a change.";
+        [3, "wave respawn disabled in the setup screen (Extender Options). Antistasi's own respawn is unchanged. Watching for a change.", "saef_tbau_waverespawn\XEH_postInit.sqf"] call SAEF_TBAU_fnc_log;
     };
 
     /*
@@ -228,7 +238,7 @@ SAEF_TBAU_fnc_stopWave = {
 
     [[], _clientHint] remoteExec ["spawn", 0, "SAEF_TBAU_WaveHint"];
 
-    diag_log "[SAEF_TBAU] broadcast wave progress readout to clients (JIP-armed as SAEF_TBAU_WaveHint)";
+    [3, "broadcast wave progress readout to clients (JIP-armed as SAEF_TBAU_WaveHint)", "saef_tbau_waverespawn\XEH_postInit.sqf"] call SAEF_TBAU_fnc_log;
 
     // Watcher. Polls rather than hooking an event: Antistasi's in-game editor rewrites
     // every param on save with no signal that anything changed, so a diff is needed
@@ -247,13 +257,13 @@ SAEF_TBAU_fnc_stopWave = {
         // Switched off in game. Stop, then open respawn so nobody is left in spectator
         // with no handler to release them.
         if (!_wantRunning) then {
-            diag_log "[SAEF_TBAU] wave respawn switched off in game, stopping handler.";
+            [2, "wave respawn switched off in game, stopping handler.", "saef_tbau_waverespawn\XEH_postInit.sqf"] call SAEF_TBAU_fnc_log;
 
             if !(call SAEF_TBAU_fnc_stopWave) then {
-                diag_log "[SAEF_TBAU] handler did not stop within 300s. Leaving it alone - forcing it would risk two loops fighting over RespawnEnabled.";
+                [1, "handler did not stop within 300s. Leaving it alone - forcing it would risk two loops fighting over RespawnEnabled.", "saef_tbau_waverespawn\XEH_postInit.sqf"] call SAEF_TBAU_fnc_log;
             } else {
                 missionNamespace setVariable ["RespawnEnabled", true, true];
-                diag_log "[SAEF_TBAU] handler stopped, respawn left open.";
+                [2, "handler stopped, respawn left open.", "saef_tbau_waverespawn\XEH_postInit.sqf"] call SAEF_TBAU_fnc_log;
                 _running = false;
             };
 
@@ -262,10 +272,10 @@ SAEF_TBAU_fnc_stopWave = {
         };
 
         // Settings changed while running, or the feature was switched back on.
-        diag_log format ["[SAEF_TBAU] wave settings changed %1 -> %2, restarting handler.", _applied, _now];
+        [2, format ["wave settings changed %1 -> %2, restarting handler.", _applied, _now], "saef_tbau_waverespawn\XEH_postInit.sqf"] call SAEF_TBAU_fnc_log;
 
         if !(call SAEF_TBAU_fnc_stopWave) then {
-            diag_log "[SAEF_TBAU] previous handler did not stop within 300s, not restarting. Old settings remain in effect.";
+            [1, "previous handler did not stop within 300s, not restarting. Old settings remain in effect.", "saef_tbau_waverespawn\XEH_postInit.sqf"] call SAEF_TBAU_fnc_log;
             _applied = _now;
             continue;
         };
